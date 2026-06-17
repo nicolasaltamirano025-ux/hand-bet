@@ -389,7 +389,7 @@ export default function GameScreen() {
             </button>
             <div className="text-white">
               <span className="font-bold text-lg">H{currentHole.n}</span>
-              <span className="text-gray-400 text-sm ml-1.5">Par {currentHole.par} · SI {currentHole.si}</span>
+              <span className="text-gray-400 text-sm ml-1.5">Par {currentHole.par} · Ventaja {currentHole.si}</span>
               {round.startingHole === 10 && (
                 <span className="text-gray-500 text-xs ml-1.5">({currentHoleIdx + 1}/{holes.length})</span>
               )}

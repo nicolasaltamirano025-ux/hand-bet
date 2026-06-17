@@ -94,7 +94,7 @@ export default function Step1Field({ field, setField, startingHole, setStartingH
                         <tr className="text-gray-400">
                           <th className="text-left pb-2">{tr.hole}</th>
                           <th className="pb-2">Par</th>
-                          <th className="pb-2">SI {startingHole === 10 && field?.holes?.some(h => h.si10) ? `(${tr.fromH10})` : ''}</th>
+                          <th className="pb-2">{tr.siLabel} {startingHole === 10 && field?.holes?.some(h => h.si10) ? `(${tr.fromH10})` : ''}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -154,7 +154,7 @@ export default function Step1Field({ field, setField, startingHole, setStartingH
                 <tr className="text-gray-400 text-center">
                   <th className="text-left pb-2">{tr.hole}</th>
                   <th className="pb-2">Par</th>
-                  <th className="pb-2">SI</th>
+                  <th className="pb-2">{tr.siLabel}</th>
                 </tr>
               </thead>
               <tbody>

@@ -174,6 +174,9 @@ const translations = {
     seeReview: 'Ver Resumen →',
     albatrosLabel: 'Albatros',
     holeInOneLabel: 'Hoyo en uno',
+    pinkiesLabel: 'Pinkies',
+    pinkiesDesc: 'Doble bogey o peor — pagas una unidad a cada jugador',
+    valuePerPinky: 'Valor por pinky',
 
     // Step5
     reviewTitle: 'Resumen',
@@ -359,6 +362,9 @@ const translations = {
     seeReview: 'See Summary →',
     albatrosLabel: 'Albatross',
     holeInOneLabel: 'Hole in one',
+    pinkiesLabel: 'Pinkies',
+    pinkiesDesc: 'Double bogey or worse — pay one unit to each player',
+    valuePerPinky: 'Value per pinky',
 
     // Step5
     reviewTitle: 'Summary',

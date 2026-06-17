@@ -128,6 +128,18 @@ export function computeSettlement(round) {
     }
   }
 
+  // ── PINKIES ────────────────────────────────────────────────────────────────
+  if (bets?.pinkies?.enabled) {
+    const pinkVal = bets.pinkies.value || 0
+    const pinkiesEvents = round.pinkiesEvents || []
+    for (const ev of pinkiesEvents) {
+      if (ev.type === 'pinky') {
+        const others = playerIds.filter(id => id !== ev.playerId)
+        pay([ev.playerId], others, pinkVal * others.length, `Pinky hoyo ${ev.holeNum} — ${players[ev.playerId]?.name}`)
+      }
+    }
+  }
+
   // ── UNITS ──────────────────────────────────────────────────────────────────
   if (bets?.units?.enabled) {
     const unitValues = { ...UNIT_DEFAULTS, ...(bets.units || {}) }

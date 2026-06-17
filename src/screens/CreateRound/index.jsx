@@ -20,12 +20,13 @@ export default function CreateRound() {
   const [startingHole, setStartingHole] = useState(1)
   const [players, setPlayers] = useState([{ name: '', handicap: 18 }])
   const [bets, setBets] = useState({
-    mano:   { enabled: true, valuePerHole: 30 },
-    oyes:   { enabled: true, value: 30 },
-    medals: { enabled: true, frontValue: 30, backValue: 30, totalValue: 30 },
-    drives: { enabled: true, value: 10 },
-    putts:  { enabled: true, valuePerPutt: 3 },
-    units:  { enabled: true, baseValue: 30, ...UNIT_DEFAULTS },
+    mano:    { enabled: true,  valuePerHole: 30 },
+    oyes:    { enabled: true,  value: 30 },
+    medals:  { enabled: true,  frontValue: 30, backValue: 30, totalValue: 30 },
+    drives:  { enabled: true,  value: 10 },
+    putts:   { enabled: true,  valuePerPutt: 3 },
+    units:   { enabled: true,  baseValue: 30, ...UNIT_DEFAULTS },
+    pinkies: { enabled: false, value: 30 },
   })
 
   function next() { setStep(s => Math.min(s + 1, TOTAL_STEPS)) }

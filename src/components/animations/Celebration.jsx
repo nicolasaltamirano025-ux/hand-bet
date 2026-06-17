@@ -48,6 +48,32 @@ export function ManoFlameBadge({ accumulated }) {
   )
 }
 
+export function PinkyOverlay({ playerName, onDone }) {
+  const [visible, setVisible] = useState(true)
+
+  useEffect(() => {
+    confetti({
+      particleCount: 90,
+      spread: 110,
+      origin: { y: 0.45 },
+      colors: ['#EC4899', '#F472B6', '#DB2777', '#BE185D', '#FDF2F8', '#FBCFE8'],
+    })
+    const t = setTimeout(() => { setVisible(false); onDone?.() }, 2800)
+    return () => clearTimeout(t)
+  }, [])
+
+  if (!visible) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center animate-pop-in" style={{ background: 'rgba(80,7,36,0.95)' }}>
+      <div className="text-8xl mb-3 animate-wiggle select-none">🤙</div>
+      <div className="font-black text-6xl tracking-widest" style={{ color: '#F9A8D4' }}>PINKY</div>
+      <div className="text-white text-2xl font-bold mt-3">{playerName}</div>
+      <div className="text-sm mt-2" style={{ color: '#F472B6' }}>paga una unidad a todos</div>
+    </div>
+  )
+}
+
 export function SalvamentoOverlay({ receiverName, label, msg, onDone }) {
   const [visible, setVisible] = useState(true)
 

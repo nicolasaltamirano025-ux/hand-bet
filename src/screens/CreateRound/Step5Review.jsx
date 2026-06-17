@@ -37,7 +37,8 @@ export default function Step5Review({ field, roundType, startingHole, players, b
         {bets.medals.enabled && <BetRow label="Medals"        value={[bets.medals.frontValue, bets.medals.backValue, bets.medals.totalValue].filter(Boolean).map(fmtMXN).join(' / ')} />}
         {bets.drives.enabled && <BetRow label="Drives"        value={`${fmtMXN(bets.drives.value)} ${tr.perHole}`} />}
         {bets.putts.enabled  && <BetRow label="Putts"         value={`${fmtMXN(bets.putts.valuePerPutt)} ${tr.perPutt}`} />}
-        {bets.units.enabled  && <BetRow label={tr.unitsLabel} value={`Base ${fmtMXN(bets.units.baseValue)}`} />}
+        {bets.units.enabled   && <BetRow label={tr.unitsLabel}   value={`Base ${fmtMXN(bets.units.baseValue)}`} />}
+        {bets.pinkies?.enabled && <BetRow label={tr.pinkiesLabel} value={`${fmtMXN(bets.pinkies.value)} / pinky`} />}
       </div>
 
       <Button onClick={handleCreate} disabled={saving} className="w-full text-lg py-5">

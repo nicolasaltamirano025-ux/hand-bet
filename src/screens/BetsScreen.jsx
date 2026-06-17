@@ -128,6 +128,20 @@ export default function BetsScreen() {
           </Card>
         )}
 
+        {bets?.pinkies?.enabled && (
+          <Card title={`🤙 ${tr.pinkiesLabel}`} sub={`${fmt(bets.pinkies.value)} / pinky`}>
+            {(round.pinkiesEvents || []).filter(e => e.type === 'pinky').length > 0
+              ? (round.pinkiesEvents || []).filter(e => e.type === 'pinky').map((e, i) => (
+                  <EventRow key={i}
+                    label={`Pinky H${e.holeNum}`}
+                    value={players[e.playerId]?.name}
+                    amount={bets.pinkies.value * (playerIds.length - 1)}
+                  />
+                ))
+              : <p className="text-gray-500 text-sm">Sin pinkies</p>}
+          </Card>
+        )}
+
         {bets?.units?.enabled && (
           <Card title={`🏆 ${tr.unitsLabel}`} sub={`Base ${fmt(bets.units?.baseValue)}`}>
             {(round.unitsEvents || []).length > 0 ? (round.unitsEvents || []).map((ev, i) => (

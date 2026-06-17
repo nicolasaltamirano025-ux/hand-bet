@@ -4,7 +4,7 @@ import { useRound, usePlayer } from '../hooks/useRound'
 import { strokesOnHole, getMinHCP } from '../utils/handicap'
 import { detectUnits } from '../utils/gameLogic'
 import { updateRoundDeep, proposePendingScore, acceptPendingScore, rejectPendingScore } from '../firebase/roundsService'
-import { CelebrationOverlay, ManoFlameBadge, SalvamentoOverlay } from '../components/animations/Celebration'
+import { CelebrationOverlay, ManoFlameBadge, SalvamentoOverlay, PinkyOverlay } from '../components/animations/Celebration'
 import ReviewModal from '../components/game/ReviewModal'
 import Modal from '../components/ui/Modal'
 import Button from '../components/ui/Button'
@@ -74,6 +74,7 @@ export default function GameScreen() {
   const [currentHoleIdx, setCurrentHoleIdx] = useState(0)
   const [celebration, setCelebration] = useState(null)
   const [salvamentoAlert, setSalvamentoAlert] = useState(null)
+  const [pinkyAlert, setPinkyAlert] = useState(null)
   const [showReview, setShowReview] = useState(false)
   const [showCode, setShowCode] = useState(searchParams.get('new') === '1')
   const [pendingScore, setPendingScore] = useState({})
@@ -152,6 +153,7 @@ export default function GameScreen() {
     ;(c.events || []).forEach((ev, i) => {
       setTimeout(() => {
         if (ev.type === 'salvamento') setSalvamentoAlert(ev.name)
+        else if (ev.type === 'pinky') setPinkyAlert(ev.name)
         else { const cel = celebMap[ev.type]?.(ev); if (cel) setCelebration(cel) }
       }, i * 2800)
     })
@@ -306,10 +308,11 @@ export default function GameScreen() {
     }
 
     // Filter existing events for this hole (makes re-save idempotent)
-    const prevManoEvents  = (round.manoEvents  || []).filter(e => e.holeNum !== holeNum)
-    const prevOyesEvents  = (round.oyesEvents  || []).filter(e => e.holeNum !== holeNum)
-    const prevDriveEvents = (round.driveEvents || []).filter(e => e.holeNum !== holeNum)
-    const prevUnitsEvents = (round.unitsEvents || []).filter(e => e.holeNum !== holeNum)
+    const prevManoEvents   = (round.manoEvents   || []).filter(e => e.holeNum !== holeNum)
+    const prevOyesEvents   = (round.oyesEvents   || []).filter(e => e.holeNum !== holeNum)
+    const prevDriveEvents  = (round.driveEvents  || []).filter(e => e.holeNum !== holeNum)
+    const prevUnitsEvents  = (round.unitsEvents  || []).filter(e => e.holeNum !== holeNum)
+    const prevPinkiesEvents = (round.pinkiesEvents || []).filter(e => e.holeNum !== holeNum)
 
     // ── Mano ───────────────────────────────────────────────────────────────
     if (bets.mano?.enabled) {
@@ -442,6 +445,20 @@ export default function GameScreen() {
       updates['unitsEvents'] = newUnitsEvents
     }
 
+    // ── Pinkies ────────────────────────────────────────────────────────────────
+    if (bets.pinkies?.enabled) {
+      const newPinkiesEvents = [...prevPinkiesEvents]
+      for (const id of playerIds) {
+        const s = pendingScore[id]
+        if (!s || s.gross == null) continue
+        if (s.gross >= par + 2) {
+          newPinkiesEvents.push({ type: 'pinky', playerId: id, holeNum })
+          celebrationsToFire.push({ type: 'pinky', name: players[id]?.name })
+        }
+      }
+      updates['pinkiesEvents'] = newPinkiesEvents
+    }
+
     if (celebrationsToFire.length > 0 && !celebratedHolesRef.current.has(holeNum)) {
       celebratedHolesRef.current.add(holeNum)
       updates['celebration'] = { events: celebrationsToFire, ts: Date.now() }
@@ -556,6 +573,9 @@ export default function GameScreen() {
       )}
       {salvamentoAlert && (
         <SalvamentoOverlay receiverName={salvamentoAlert} msg={tr.salvamentoMsg(salvamentoAlert)} label={tr.salvamento} onDone={() => setSalvamentoAlert(null)} />
+      )}
+      {pinkyAlert && (
+        <PinkyOverlay playerName={pinkyAlert} onDone={() => setPinkyAlert(null)} />
       )}
 
       <ReviewModal

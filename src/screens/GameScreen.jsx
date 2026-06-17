@@ -43,6 +43,23 @@ function rebuildDrivesAccumulated(events) {
   return acc
 }
 
+// Pairwise handicap comparison: returns players who don't lose to anyone
+function getPairwiseWinners(playerIds, grossScores, handicaps, holeSI) {
+  const losers = new Set()
+  for (let i = 0; i < playerIds.length; i++) {
+    for (let j = i + 1; j < playerIds.length; j++) {
+      const p = playerIds[i], q = playerIds[j]
+      const diff = handicaps[p] - handicaps[q]
+      const netP = grossScores[p] - (diff > 0 ? strokesOnHole(diff, holeSI) : 0)
+      const netQ = grossScores[q] - (diff < 0 ? strokesOnHole(-diff, holeSI) : 0)
+      if (netP < netQ) losers.add(q)
+      else if (netQ < netP) losers.add(p)
+    }
+  }
+  const winners = playerIds.filter(id => !losers.has(id))
+  return winners.length > 0 ? winners : playerIds // fallback: cycle → all tie
+}
+
 export default function GameScreen() {
   const { code } = useParams()
   const [searchParams] = useSearchParams()
@@ -163,7 +180,7 @@ export default function GameScreen() {
 
   // ── Navigation with validation ────────────────────────────────────────────
   function handleNext() {
-    if (!isCreator) { doNavigate(); return }
+    if (!isCreator) { navigate(); return }
 
     const missingNames = playerIds
       .filter(id => pendingScore[id]?.gross == null)
@@ -187,11 +204,17 @@ export default function GameScreen() {
       }
     }
 
-    doNavigate()
+    saveAndNavigate()
   }
 
-  function doNavigate() {
+  // Called when validation passes or user confirms "continue anyway"
+  async function saveAndNavigate() {
     setValidation(null)
+    if (isCreator && !savingRef.current) await saveHole()
+    navigate()
+  }
+
+  function navigate() {
     if (currentHoleIdx < holes.length - 1) setCurrentHoleIdx(i => i + 1)
     else nav(`/round/${code}/final`)
   }
@@ -225,16 +248,12 @@ export default function GameScreen() {
 
     // ── Mano ───────────────────────────────────────────────────────────────
     if (bets.mano?.enabled) {
-      const netScores = {}
-      for (const id of playerIds) {
-        const g = pendingScore[id]?.gross
-        if (g != null) netScores[id] = g - strokesOnHole(players[id].handicap - minHCP, si)
-      }
+      const validIds = playerIds.filter(id => pendingScore[id]?.gross != null)
 
-      const validIds = Object.keys(netScores)
       if (validIds.length > 0) {
-        const minNet = Math.min(...validIds.map(id => netScores[id]))
-        const winners = validIds.filter(id => netScores[id] === minNet)
+        const grossScores = Object.fromEntries(validIds.map(id => [id, pendingScore[id].gross]))
+        const handicaps  = Object.fromEntries(validIds.map(id => [id, players[id].handicap]))
+        const winners = getPairwiseWinners(validIds, grossScores, handicaps, si)
 
         let mState = rebuildManoState(prevManoEvents)
         const newManoEvents = [...prevManoEvents]
@@ -485,7 +504,7 @@ export default function GameScreen() {
           </p>
           <div className="flex gap-3">
             <Button onClick={() => setValidation(null)} variant="outline" className="flex-1">{tr.reviewBtn}</Button>
-            <Button onClick={doNavigate} className="flex-1">{tr.continueAnyway}</Button>
+            <Button onClick={saveAndNavigate} className="flex-1">{tr.continueAnyway}</Button>
           </div>
         </Modal>
       )}

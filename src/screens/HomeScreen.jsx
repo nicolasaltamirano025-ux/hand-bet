@@ -34,8 +34,8 @@ export default function HomeScreen() {
         <p className="text-gray-400 text-sm tracking-widest uppercase">Golf Betting App</p>
       </div>
 
-      {/* User profile chip */}
-      {user !== null && (
+      {/* User profile chip — only render once Firebase auth has resolved */}
+      {user !== undefined && (
         user
           ? <button
               onClick={() => nav('/profile')}

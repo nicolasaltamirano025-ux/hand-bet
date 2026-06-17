@@ -93,21 +93,22 @@ export function computeSettlement(round) {
     }
   }
 
-  // ── PUTTS — individual: each player pays (their putts − min) × value to the player with fewest putts
+  // ── PUTTS — solo el jugador con MÁS putts paga (al de menos putts)
   if (bets?.putts?.enabled) {
     const puttVal = bets.putts.valuePerPutt || 0
     const holesWithScores = holes.map(h => ({
       ...h,
       scores: holesMap[h.n]?.scores || holesMap[String(h.n)]?.scores || {},
     }))
-    const { totalPutts, minPlayers, min } = calcPutts(players, holesWithScores)
+    const { totalPutts, minPlayers, maxPlayers, min, max } = calcPutts(players, holesWithScores)
 
-    for (const id of playerIds) {
-      const myPutts = totalPutts[id] || 0
-      const excess = myPutts - (min || 0)
-      if (excess > 0 && minPlayers.length > 0) {
-        const amount = excess * puttVal
-        pay([id], minPlayers, amount, `Putts — ${players[id]?.name} (${myPutts} putts)`)
+    if (max > min && maxPlayers.length > 0 && minPlayers.length > 0) {
+      for (const id of maxPlayers) {
+        const excess = (totalPutts[id] || 0) - (min || 0)
+        if (excess > 0) {
+          const amount = excess * puttVal
+          pay([id], minPlayers, amount, `Putts — ${players[id]?.name} (${totalPutts[id]} putts)`)
+        }
       }
     }
   }

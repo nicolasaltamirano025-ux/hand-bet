@@ -14,8 +14,9 @@ import { useLanguage } from '../i18n'
 function rebuildManoState(events) {
   let s = { holderId: null, isOpen: false, accumulated: 0 }
   for (const e of events) {
-    if (e.type === 'mano_open')        s = { holderId: null, isOpen: true, accumulated: 1 }
+    if (e.type === 'mano_open')             s = { holderId: null, isOpen: true, accumulated: 1 }
     else if (e.type === 'mano_accumulated') s = { ...s, accumulated: e.newTotal }
+    else if (e.type === 'mano_taken')       s = { holderId: e.holderId, isOpen: true, accumulated: e.newTotal }
     else if (e.type === 'mano_win' || e.type === 'hole_win') s = { holderId: null, isOpen: false, accumulated: 0 }
   }
   return s
@@ -77,9 +78,11 @@ export default function GameScreen() {
   const [showCode, setShowCode] = useState(searchParams.get('new') === '1')
   const [pendingScore, setPendingScore] = useState({})
   const [saving, setSaving] = useState(false)
-  const [validation, setValidation] = useState(null) // { type: 'missing'|'zero_putts', names: [] }
+  const [validation, setValidation] = useState(null) // { type: 'missing'|'zero_putts'|'discrepancy'|'oyes_reminder', ... }
   const savingRef = useRef(false)
   const lastCelebrationTsRef = useRef(null)
+  const celebrationInitialized = useRef(false)
+  const celebratedHolesRef = useRef(new Set())
   const initialHoleSet = useRef(false)
 
   useEffect(() => {
@@ -121,6 +124,13 @@ export default function GameScreen() {
     }
     setPendingScore(existing)
   }, [currentHoleIdx, round?.holes])
+
+  // Mark the existing celebration ts as "already seen" on first load to avoid replaying old events
+  useEffect(() => {
+    if (celebrationInitialized.current || !round?.celebration?.ts) return
+    celebrationInitialized.current = true
+    lastCelebrationTsRef.current = round.celebration.ts
+  }, [round?.celebration?.ts])
 
   // Watch celebration field in Firebase and display for all players
   useEffect(() => {
@@ -204,6 +214,32 @@ export default function GameScreen() {
       }
     }
 
+    // Discrepancy checks
+    const impossible = []
+    const suspicious = []
+    for (const id of playerIds) {
+      const s = pendingScore[id] || {}
+      if (s.gross == null) continue
+      const { gross, putts = 0 } = s
+      if (putts > gross) {
+        impossible.push(`${players[id]?.name}: ${putts} putts con score ${gross} (más putts que golpes totales)`)
+      } else if (gross - putts < 1 && putts > 0 && !s.chipIn) {
+        impossible.push(`${players[id]?.name}: sin golpes de approach (putts=${putts}, score=${gross})`)
+      } else if (currentHole.par >= 4 && gross - putts === 1 && !s.chipIn) {
+        suspicious.push(`${players[id]?.name}: llegó al green del hoyo ${currentHole.par} en 1 golpe — ¿correcto?`)
+      }
+    }
+    if (impossible.length > 0 || suspicious.length > 0) {
+      setValidation({ type: 'discrepancy', impossible, suspicious })
+      return
+    }
+
+    // O'yes reminder on par 3
+    if (bets.oyes?.enabled && currentHole.par === 3) {
+      setValidation({ type: 'oyes_reminder' })
+      return
+    }
+
     saveAndNavigate()
   }
 
@@ -258,7 +294,8 @@ export default function GameScreen() {
         let mState = rebuildManoState(prevManoEvents)
         const newManoEvents = [...prevManoEvents]
 
-        if (!mState.isOpen && mState.accumulated === 0) {
+        if (!mState.isOpen) {
+          // No mano in play
           if (winners.length === 1) {
             newManoEvents.push({ type: 'hole_win', winnerId: winners[0], holeNum, units: 1 })
             celebrationsToFire.push({ type: 'hole_win', name: players[winners[0]]?.name })
@@ -266,28 +303,37 @@ export default function GameScreen() {
             mState = { holderId: null, isOpen: true, accumulated: 1 }
             newManoEvents.push({ type: 'mano_open', holeNum })
           }
-        } else if (mState.isOpen) {
+        } else {
+          // Mano is in play (may or may not have a holder)
           const totalAcc = mState.accumulated + 1
+
           if (winners.length === 1) {
-            newManoEvents.push({ type: 'mano_win', winnerId: winners[0], holeNum, units: totalAcc })
-            mState = { holderId: null, isOpen: false, accumulated: 0 }
-            celebrationsToFire.push({ type: 'mano_win', name: players[winners[0]]?.name, extra: totalAcc })
+            const winner = winners[0]
+            if (mState.holderId === winner) {
+              // Holder wins again → collects everything
+              newManoEvents.push({ type: 'mano_win', winnerId: winner, holeNum, units: totalAcc })
+              mState = { holderId: null, isOpen: false, accumulated: 0 }
+              celebrationsToFire.push({ type: 'mano_win', name: players[winner]?.name, extra: totalAcc })
+            } else {
+              // New player takes the mano (must win again to collect)
+              newManoEvents.push({ type: 'mano_taken', holderId: winner, holeNum, newTotal: totalAcc })
+              mState = { holderId: winner, isOpen: true, accumulated: totalAcc }
+            }
           } else {
+            // Tie — check salvamento
             if (mState.accumulated >= 10 && mState.holderId && winners.includes(mState.holderId) && winners.length === 2) {
               const other = winners.find(id => id !== mState.holderId)
               newManoEvents.push({ type: 'salvamento', receiverId: other, holeNum, accumulated: mState.accumulated, manoHolderId: mState.holderId })
               celebrationsToFire.push({ type: 'salvamento', name: players[other]?.name })
             }
-            mState = { ...mState, accumulated: totalAcc }
+            // If current holder is not among the tied players, they lose the mano
+            const holderSurvives = !mState.holderId || winners.includes(mState.holderId)
+            mState = {
+              holderId: holderSurvives ? mState.holderId : null,
+              isOpen: true,
+              accumulated: totalAcc,
+            }
             newManoEvents.push({ type: 'mano_accumulated', holeNum, newTotal: totalAcc })
-          }
-        } else {
-          if (winners.length === 1) {
-            newManoEvents.push({ type: 'hole_win', winnerId: winners[0], holeNum, units: 1 })
-            celebrationsToFire.push({ type: 'hole_win', name: players[winners[0]]?.name })
-          } else {
-            mState = { holderId: null, isOpen: true, accumulated: 1 }
-            newManoEvents.push({ type: 'mano_open', holeNum })
           }
         }
 
@@ -367,7 +413,8 @@ export default function GameScreen() {
       updates['unitsEvents'] = newUnitsEvents
     }
 
-    if (celebrationsToFire.length > 0) {
+    if (celebrationsToFire.length > 0 && !celebratedHolesRef.current.has(holeNum)) {
+      celebratedHolesRef.current.add(holeNum)
       updates['celebration'] = { events: celebrationsToFire, ts: Date.now() }
     }
 
@@ -403,7 +450,12 @@ export default function GameScreen() {
             </div>
           </div>
         </div>
-        {holderName && manoState.isOpen && (
+        {manoState.isOpen && !holderName && (
+          <div className="mt-1 text-xs text-orange-300">
+            🔥 {tr.manoOpen(manoState.accumulated)}
+          </div>
+        )}
+        {manoState.isOpen && holderName && (
           <div className="mt-1 text-xs text-orange-300">
             {tr.manoStatus(holderName, manoState.accumulated)}
           </div>
@@ -487,24 +539,59 @@ export default function GameScreen() {
           <div className="text-gold font-black text-7xl tracking-widest">{code}</div>
           <p className="text-gray-400 text-sm text-center">{tr.shareCodeMsg}</p>
           <Button onClick={() => {
-            navigator.share?.({ title: 'Hand Bet', text: tr.joinCodeMsg(code), url: window.location.origin + `/join` })
-              .catch(() => navigator.clipboard?.writeText(code))
+            const joinUrl = window.location.origin + `/join?code=${code}`
+            navigator.share?.({ title: 'Hand Bet', text: tr.joinCodeMsg(code), url: joinUrl })
+              .catch(() => navigator.clipboard?.writeText(joinUrl))
           }} className="w-full">{tr.shareCode}</Button>
         </div>
       </Modal>
 
-      {validation && (
-        <Modal open onClose={() => setValidation(null)}
-          title={validation.type === 'missing' ? tr.missingScore : tr.zeroPuttsTitle}
-        >
-          <p className="text-gray-300 text-sm mb-5">
-            {validation.type === 'missing'
-              ? tr.missingScoreMsg(validation.names.join(', '))
-              : tr.zeroPuttsMsg(validation.names.join(', '))}
-          </p>
+      {validation && validation.type === 'missing' && (
+        <Modal open onClose={() => setValidation(null)} title={tr.missingScore}>
+          <p className="text-gray-300 text-sm mb-5">{tr.missingScoreMsg(validation.names.join(', '))}</p>
           <div className="flex gap-3">
             <Button onClick={() => setValidation(null)} variant="outline" className="flex-1">{tr.reviewBtn}</Button>
             <Button onClick={saveAndNavigate} className="flex-1">{tr.continueAnyway}</Button>
+          </div>
+        </Modal>
+      )}
+      {validation && validation.type === 'zero_putts' && (
+        <Modal open onClose={() => setValidation(null)} title={tr.zeroPuttsTitle}>
+          <p className="text-gray-300 text-sm mb-5">{tr.zeroPuttsMsg(validation.names.join(', '))}</p>
+          <div className="flex gap-3">
+            <Button onClick={() => setValidation(null)} variant="outline" className="flex-1">{tr.reviewBtn}</Button>
+            <Button onClick={saveAndNavigate} className="flex-1">{tr.continueAnyway}</Button>
+          </div>
+        </Modal>
+      )}
+      {validation && validation.type === 'discrepancy' && (
+        <Modal open onClose={() => setValidation(null)} title={tr.discrepancyTitle}>
+          {validation.impossible.length > 0 && (
+            <div className="mb-3">
+              <p className="text-red-400 text-xs font-semibold mb-1">{tr.discrepancyHardMsg}</p>
+              {validation.impossible.map((msg, i) => <p key={i} className="text-gray-300 text-sm">• {msg}</p>)}
+            </div>
+          )}
+          {validation.suspicious.length > 0 && (
+            <div className="mb-3">
+              <p className="text-yellow-400 text-xs font-semibold mb-1">{tr.discrepancySoftMsg}</p>
+              {validation.suspicious.map((msg, i) => <p key={i} className="text-gray-300 text-sm">• {msg}</p>)}
+            </div>
+          )}
+          <div className="flex gap-3 mt-4">
+            <Button onClick={() => setValidation(null)} variant="outline" className="flex-1">{tr.reviewBtn}</Button>
+            {validation.impossible.length === 0 && (
+              <Button onClick={saveAndNavigate} className="flex-1">{tr.continueAnyway}</Button>
+            )}
+          </div>
+        </Modal>
+      )}
+      {validation && validation.type === 'oyes_reminder' && (
+        <Modal open onClose={() => saveAndNavigate()} title={tr.oyesReminderTitle}>
+          <p className="text-gray-300 text-sm mb-5">{tr.oyesReminderMsg}</p>
+          <div className="flex gap-3">
+            <Button onClick={() => setValidation(null)} variant="outline" className="flex-1">{tr.reviewBtn}</Button>
+            <Button onClick={saveAndNavigate} className="flex-1">{tr.oyesLooksGood}</Button>
           </div>
         </Modal>
       )}

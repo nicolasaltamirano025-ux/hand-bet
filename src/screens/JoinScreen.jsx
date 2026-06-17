@@ -1,17 +1,30 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getRound } from '../firebase/roundsService'
 import Button from '../components/ui/Button'
 import { useLanguage } from '../i18n'
 
 export default function JoinScreen() {
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
   const { tr } = useLanguage()
-  const [code, setCode] = useState('')
+  const [code, setCode] = useState(() => searchParams.get('code') || '')
   const [round, setRound] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [selectedPlayer, setSelectedPlayer] = useState(null)
+
+  useEffect(() => {
+    const urlCode = searchParams.get('code')
+    if (urlCode?.length === 4) {
+      setLoading(true)
+      getRound(urlCode).then(data => {
+        setLoading(false)
+        if (data) setRound(data)
+        else setError(tr.codeNotFound)
+      })
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSearch() {
     setError('')

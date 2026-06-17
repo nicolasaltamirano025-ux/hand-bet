@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { LanguageProvider } from './i18n'
 import HomeScreen from './screens/HomeScreen'
 import JoinScreen from './screens/JoinScreen'
 import CreateRound from './screens/CreateRound/index'
@@ -9,6 +10,7 @@ import FinalScreen from './screens/FinalScreen'
 
 export default function App() {
   return (
+    <LanguageProvider>
     <BrowserRouter>
       <Routes>
         <Route path="/"                       element={<HomeScreen />} />
@@ -21,5 +23,6 @@ export default function App() {
         <Route path="*"                       element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
+    </LanguageProvider>
   )
 }

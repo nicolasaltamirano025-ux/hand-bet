@@ -8,6 +8,7 @@ import { CelebrationOverlay, ManoFlameBadge, SalvamentoOverlay } from '../compon
 import ReviewModal from '../components/game/ReviewModal'
 import Modal from '../components/ui/Modal'
 import Button from '../components/ui/Button'
+import { useLanguage } from '../i18n'
 
 // ── State rebuilders (for idempotent re-saves) ───────────────────────────────
 function rebuildManoState(events) {
@@ -48,6 +49,7 @@ export default function GameScreen() {
   const nav = useNavigate()
   const { round, loading } = useRound(code)
 
+  const { tr } = useLanguage()
   const localPlayerId = localStorage.getItem(`hb_player_${code}`)
   const { isCreator } = usePlayer(round, localPlayerId)
 
@@ -109,11 +111,11 @@ export default function GameScreen() {
     if (!c?.ts || c.ts === lastCelebrationTsRef.current) return
     lastCelebrationTsRef.current = c.ts
     const celebMap = {
-      hole_win: ev => ({ emoji: '🏆', message: `Hoyo para\n${ev.name}!` }),
-      mano_win: ev => ({ emoji: '🤜', message: `${ev.name} gana\n¡LA MANO!\n${ev.extra} hoyos` }),
-      oyes:     ev => ({ emoji: '📍', message: `O'YES!\n${ev.name}` }),
-      zapato:   ev => ({ emoji: '👟', message: `¡EL ZAPATO!\n${ev.name}` }),
-      drive:    ev => ({ emoji: '💨', message: `Drive\n${ev.name}` }),
+      hole_win: ev => ({ emoji: '🏆', message: tr.celebHoleWin(ev.name) }),
+      mano_win: ev => ({ emoji: '🤜', message: tr.celebManoWin(ev.name, ev.extra) }),
+      oyes:     ev => ({ emoji: '📍', message: tr.celebOyes(ev.name) }),
+      zapato:   ev => ({ emoji: '👟', message: tr.celebZapato(ev.name) }),
+      drive:    ev => ({ emoji: '💨', message: tr.celebDrive(ev.name) }),
     }
     ;(c.events || []).forEach((ev, i) => {
       setTimeout(() => {
@@ -121,10 +123,10 @@ export default function GameScreen() {
         else { const cel = celebMap[ev.type]?.(ev); if (cel) setCelebration(cel) }
       }, i * 2800)
     })
-  }, [round?.celebration?.ts])
+  }, [round?.celebration?.ts, tr])
 
   if (loading || !round) return <Loading />
-  if (!currentHole) return <div className="text-white p-8">Ronda completada.</div>
+  if (!currentHole) return <div className="text-white p-8">{tr.roundCompleted}</div>
 
   const manoState = round.manoState || {}
   const holderName = manoState.holderId ? players[manoState.holderId]?.name : null
@@ -384,12 +386,12 @@ export default function GameScreen() {
         </div>
         {holderName && manoState.isOpen && (
           <div className="mt-1 text-xs text-orange-300">
-            🤜 Mano: {holderName} · {manoState.accumulated} hoyos acumulados
+            {tr.manoStatus(holderName, manoState.accumulated)}
           </div>
         )}
         {hasPendingReview && (
           <div className="mt-1 flex items-center gap-1.5">
-            <span className="bg-yellow-800 text-yellow-200 text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">⚠ EN REVIEW</span>
+            <span className="bg-yellow-800 text-yellow-200 text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">⚠ {tr.inReview}</span>
           </div>
         )}
       </div>
@@ -422,11 +424,11 @@ export default function GameScreen() {
           onClick={() => setCurrentHoleIdx(i => Math.max(0, i - 1))}
           disabled={currentHoleIdx === 0}
           className="flex-1 py-3.5 rounded-xl border border-border text-white font-semibold disabled:opacity-30"
-        >← Anterior</button>
+        >{tr.previous}</button>
 
         {isCreator && (
           <Button onClick={saveHole} disabled={saving} className="flex-1 py-3.5 text-sm">
-            {saving ? '...' : '💾 Guardar'}
+            {saving ? '...' : tr.save}
           </Button>
         )}
 
@@ -434,7 +436,7 @@ export default function GameScreen() {
           onClick={handleNext}
           className="flex-1 py-3.5 rounded-xl border border-border text-white font-semibold"
         >
-          {currentHoleIdx < holes.length - 1 ? 'Siguiente →' : '🏁 Final'}
+          {currentHoleIdx < holes.length - 1 ? tr.next : tr.final}
         </button>
       </div>
 
@@ -447,7 +449,7 @@ export default function GameScreen() {
         <CelebrationOverlay message={celebration.message} emoji={celebration.emoji} onDone={() => setCelebration(null)} />
       )}
       {salvamentoAlert && (
-        <SalvamentoOverlay receiverName={salvamentoAlert} onDone={() => setSalvamentoAlert(null)} />
+        <SalvamentoOverlay receiverName={salvamentoAlert} msg={tr.salvamentoMsg(salvamentoAlert)} label={tr.salvamento} onDone={() => setSalvamentoAlert(null)} />
       )}
 
       <ReviewModal
@@ -461,30 +463,29 @@ export default function GameScreen() {
         localPlayerId={localPlayerId}
       />
 
-      <Modal open={showCode} onClose={() => setShowCode(false)} title="Código de la Ronda">
+      <Modal open={showCode} onClose={() => setShowCode(false)} title={tr.roundCodeTitle}>
         <div className="flex flex-col items-center gap-4 py-4">
           <div className="text-gold font-black text-7xl tracking-widest">{code}</div>
-          <p className="text-gray-400 text-sm text-center">Comparte este código para que los demás jugadores se unan</p>
+          <p className="text-gray-400 text-sm text-center">{tr.shareCodeMsg}</p>
           <Button onClick={() => {
-            navigator.share?.({ title: 'Hand Bet', text: `Únete a mi ronda de golf. Código: ${code}`, url: window.location.origin + `/join` })
+            navigator.share?.({ title: 'Hand Bet', text: tr.joinCodeMsg(code), url: window.location.origin + `/join` })
               .catch(() => navigator.clipboard?.writeText(code))
-          }} className="w-full">Compartir código</Button>
+          }} className="w-full">{tr.shareCode}</Button>
         </div>
       </Modal>
 
-      {/* Validation warning */}
       {validation && (
         <Modal open onClose={() => setValidation(null)}
-          title={validation.type === 'missing' ? '⚠️ Score faltante' : '⚠️ 0 putts sin justificar'}
+          title={validation.type === 'missing' ? tr.missingScore : tr.zeroPuttsTitle}
         >
           <p className="text-gray-300 text-sm mb-5">
             {validation.type === 'missing'
-              ? `Falta el score de: ${validation.names.join(', ')}`
-              : `${validation.names.join(', ')} tiene 0 putts sin Hole-out marcado. ¿Hizo hole-out?`}
+              ? tr.missingScoreMsg(validation.names.join(', '))
+              : tr.zeroPuttsMsg(validation.names.join(', '))}
           </p>
           <div className="flex gap-3">
-            <Button onClick={() => setValidation(null)} variant="outline" className="flex-1">Revisar</Button>
-            <Button onClick={doNavigate} className="flex-1">Continuar igual</Button>
+            <Button onClick={() => setValidation(null)} variant="outline" className="flex-1">{tr.reviewBtn}</Button>
+            <Button onClick={doNavigate} className="flex-1">{tr.continueAnyway}</Button>
           </div>
         </Modal>
       )}
@@ -493,17 +494,17 @@ export default function GameScreen() {
 }
 
 function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, minHCP, onChange, onSetDriveWinner, onSetOyesClosest }) {
+  const { tr } = useLanguage()
   const strokes = strokesOnHole(player.handicap - minHCP, hole.si)
   const gross = score.gross
   const net = gross != null ? gross - strokes : null
 
   const diff = gross != null ? gross - hole.par : null
   const scoreColor = diff == null ? 'text-white' : diff < -1 ? 'text-yellow-400' : diff === -1 ? 'text-red-400' : diff === 0 ? 'text-blue-400' : 'text-gray-400'
-  const scoreLabel = diff == null ? '—' : diff === -3 ? 'Albatros' : diff === -2 ? 'Eagle' : diff === -1 ? 'Birdie' : diff === 0 ? 'Par' : `+${diff}`
+  const scoreLabel = diff == null ? '—' : diff === -3 ? tr.albatross.replace('🐦 ', '') : diff === -2 ? 'Eagle' : diff === -1 ? 'Birdie' : diff === 0 ? 'Par' : `+${diff}`
 
   const units = gross != null ? detectUnits(gross, hole.par, score.inBunker, score.chipIn) : []
 
-  // Auto-fill putts on par 3 when on green in 1 and score >= par
   useEffect(() => {
     if (!bets.putts?.enabled || hole.par !== 3 || !score.onGreenFirstShot) return
     if (gross == null || gross < hole.par) return
@@ -516,13 +517,13 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, minHC
       <div className="flex items-center justify-between mb-3">
         <div>
           <p className="text-white font-bold text-base">{player.name}</p>
-          <p className="text-gray-400 text-xs">HCP {player.handicap} · {strokes > 0 ? `+${strokes} ventaja${strokes > 1 ? 's' : ''}` : 'referencia'}</p>
+          <p className="text-gray-400 text-xs">HCP {player.handicap} · {strokes > 0 ? tr.strokes(strokes) : tr.reference}</p>
         </div>
         <div className="text-right">
           {gross != null && (
             <>
               <p className={`text-2xl font-black ${scoreColor}`}>{gross}</p>
-              <p className="text-gray-400 text-xs">{scoreLabel}{net != null ? ` · neto ${net}` : ''}</p>
+              <p className="text-gray-400 text-xs">{scoreLabel}{net != null ? ` · ${tr.net} ${net}` : ''}</p>
             </>
           )}
         </div>
@@ -531,7 +532,7 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, minHC
       {isCreator ? (
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-gray-400 text-sm w-14">Score</span>
+            <span className="text-gray-400 text-sm w-14">{tr.score}</span>
             <div className="flex items-center gap-2 flex-1">
               <button
                 onClick={() => onChange('gross', gross == null ? Math.max(1, hole.par - 1) : Math.max(1, gross - 1))}
@@ -549,7 +550,7 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, minHC
 
           {bets.putts?.enabled && (
             <div className="flex items-center gap-2">
-              <span className="text-gray-400 text-sm w-14">Putts</span>
+              <span className="text-gray-400 text-sm w-14">{tr.putts}</span>
               <div className="flex items-center gap-2 flex-1">
                 <button onClick={() => onChange('putts', Math.max(0, (score.putts ?? 0) - 1))} className="w-12 h-12 rounded-xl border border-border text-white text-2xl font-bold active:bg-border">−</button>
                 <div className="flex-1 text-center text-2xl font-bold text-white py-1">{score.putts ?? 0}</div>
@@ -560,20 +561,20 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, minHC
 
           <div className="flex flex-wrap gap-2 mt-1">
             {(hole.par === 4 || hole.par === 5) && bets.drives?.enabled && (
-              <Chip active={score.driveWinner} onClick={onSetDriveWinner} label="💨 Drive" />
+              <Chip active={score.driveWinner} onClick={onSetDriveWinner} label={tr.drive} />
             )}
             {hole.par === 3 && bets.oyes?.enabled && (
               <>
-                <Chip active={score.onGreenFirstShot} onClick={() => onChange('onGreenFirstShot', !score.onGreenFirstShot)} label="🟢 En green 1er tiro" />
+                <Chip active={score.onGreenFirstShot} onClick={() => onChange('onGreenFirstShot', !score.onGreenFirstShot)} label={tr.onGreenFirstShot} />
                 {score.onGreenFirstShot && (
-                  <Chip active={score.oyesClosest} onClick={onSetOyesClosest} label="📍 Más cercano" />
+                  <Chip active={score.oyesClosest} onClick={onSetOyesClosest} label={tr.closest} />
                 )}
               </>
             )}
             {bets.units?.enabled && (
               <>
-                <Chip active={score.inBunker} onClick={() => onChange('inBunker', !score.inBunker)} label="🏖️ Bunker" />
-                <Chip active={score.chipIn} onClick={() => onChange('chipIn', !score.chipIn)} label="🎯 Hole-out" />
+                <Chip active={score.inBunker} onClick={() => onChange('inBunker', !score.inBunker)} label={tr.bunker} />
+                <Chip active={score.chipIn} onClick={() => onChange('chipIn', !score.chipIn)} label={tr.holeOut} />
               </>
             )}
           </div>
@@ -581,7 +582,7 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, minHC
           {units.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-0.5">
               {units.map(u => (
-                <span key={u} className="bg-gold/20 text-gold text-xs px-2 py-0.5 rounded-full font-semibold">{unitEmoji(u)}</span>
+                <span key={u} className="bg-gold/20 text-gold text-xs px-2 py-0.5 rounded-full font-semibold">{unitEmoji(u, tr)}</span>
               ))}
             </div>
           )}
@@ -589,9 +590,9 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, minHC
       ) : (
         <div className="flex gap-4 text-sm text-gray-400">
           {score.putts != null && <span>⛳ {score.putts} putts</span>}
-          {score.driveWinner && <span>💨 Drive</span>}
+          {score.driveWinner && <span>{tr.drive}</span>}
           {score.onGreenFirstShot && <span>🟢 Green</span>}
-          {units.map(u => <span key={u}>{unitEmoji(u)}</span>)}
+          {units.map(u => <span key={u}>{unitEmoji(u, tr)}</span>)}
         </div>
       )}
     </div>
@@ -609,14 +610,14 @@ function Chip({ active, onClick, label }) {
   )
 }
 
-function unitEmoji(key) {
+function unitEmoji(key, tr) {
   const map = {
-    birdie:    '🦅 Birdie',
-    eagle:     '🦅🦅 Eagle',
-    albatross: '🐦 Albatros',
-    holeInOne: '⛳ Hoyo en uno',
-    sandyPar:  '🏖️ Sandy par',
-    chipIn:    '🎯 Hole-out',
+    birdie:    tr.birdie,
+    eagle:     tr.eagle,
+    albatross: tr.albatross,
+    holeInOne: tr.holeInOne,
+    sandyPar:  tr.sandyPar,
+    chipIn:    tr.chipIn,
   }
   return map[key] || key
 }

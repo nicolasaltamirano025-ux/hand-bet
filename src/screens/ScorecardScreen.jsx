@@ -1,10 +1,12 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useRound } from '../hooks/useRound'
 import { strokesOnHole, getMinHCP } from '../utils/handicap'
+import { useLanguage } from '../i18n'
 
 export default function ScorecardScreen() {
   const { code } = useParams()
   const nav = useNavigate()
+  const { tr } = useLanguage()
   const { round, loading } = useRound(code)
 
   if (loading || !round) return <Loading />
@@ -57,7 +59,7 @@ export default function ScorecardScreen() {
         className="sticky top-0 bg-bg border-b border-border px-4 py-4 flex items-center gap-4 z-10"
         style={{ paddingTop: 'max(16px, env(safe-area-inset-top))' }}
       >
-        <button onClick={() => nav(-1)} className="text-gray-400 text-sm">← Volver</button>
+        <button onClick={() => nav(-1)} className="text-gray-400 text-sm">{tr.back}</button>
         <h2 className="text-white font-bold text-lg flex-1 text-center">Scorecard</h2>
         <span className="text-gold font-bold text-lg">{code}</span>
       </div>
@@ -66,7 +68,7 @@ export default function ScorecardScreen() {
         <table className="min-w-full text-xs border-collapse">
           <thead>
             <tr className="bg-surface border-b border-border">
-              <th className="sticky left-0 bg-surface px-3 py-2 text-gray-400 text-left font-semibold min-w-[80px]">Hoyo</th>
+              <th className="sticky left-0 bg-surface px-3 py-2 text-gray-400 text-left font-semibold min-w-[80px]">{tr.hole}</th>
               {holes.map(h => (
                 <th key={h.n} className="px-2 py-2 text-gray-400 font-semibold min-w-[44px] text-center">
                   {h.n}
@@ -88,7 +90,6 @@ export default function ScorecardScreen() {
           <tbody>
             {playerIds.map(id => (
               <>
-                {/* Gross row */}
                 <tr key={`${id}-g`} className="border-b border-border/30">
                   <td className="sticky left-0 bg-bg px-3 py-2 font-semibold text-white">{players[id].name}</td>
                   {holes.map(h => {
@@ -106,9 +107,8 @@ export default function ScorecardScreen() {
                   {back.length  > 0 && <td className="px-2 py-2 text-center text-gold font-bold">{totalGross(id, back) || '·'}</td>}
                   <td className="px-2 py-2 text-center text-gold font-bold">{totalGross(id, holes) || '·'}</td>
                 </tr>
-                {/* Net row */}
                 <tr key={`${id}-n`} className="border-b border-border/30">
-                  <td className="sticky left-0 bg-bg px-3 py-1 text-gray-400 text-[11px]">neto</td>
+                  <td className="sticky left-0 bg-bg px-3 py-1 text-gray-400 text-[11px]">{tr.net}</td>
                   {holes.map(h => {
                     const n = net(id, h)
                     return <td key={h.n} className="px-2 py-1 text-center text-gray-400 text-[11px]">{n ?? '·'}</td>
@@ -117,10 +117,9 @@ export default function ScorecardScreen() {
                   {back.length  > 0 && <td className="px-2 py-1 text-center text-gray-400 text-[11px]">{totalNet(id, back) || '·'}</td>}
                   <td className="px-2 py-1 text-center text-gray-400 text-[11px]">{totalNet(id, holes) || '·'}</td>
                 </tr>
-                {/* Putts row — individual per player */}
                 {round.bets?.putts?.enabled && (
                   <tr key={`${id}-p`} className="border-b border-border">
-                    <td className="sticky left-0 bg-bg px-3 py-1 text-blue-400/70 text-[11px]">putts</td>
+                    <td className="sticky left-0 bg-bg px-3 py-1 text-blue-400/70 text-[11px]">{tr.putts.toLowerCase()}</td>
                     {holes.map(h => {
                       const p = putts(id, h)
                       return <td key={h.n} className="px-2 py-1 text-center text-blue-400/70 text-[11px]">{p ?? '·'}</td>

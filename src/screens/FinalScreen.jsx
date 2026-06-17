@@ -3,12 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useRound } from '../hooks/useRound'
 import { computeSettlement } from '../utils/settlement'
 import { generateShareImage } from '../utils/shareImage'
+import { useLanguage } from '../i18n'
 
 const fmt = n => `$${Math.abs(Number(n || 0)).toLocaleString('es-MX')}`
 
 export default function FinalScreen() {
   const { code } = useParams()
   const nav = useNavigate()
+  const { tr } = useLanguage()
   const { round, loading } = useRound(code)
   const [sharing, setSharing] = useState(false)
 
@@ -35,11 +37,9 @@ export default function FinalScreen() {
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], title: 'Hand Bet — Resultado' })
       } else if (navigator.share) {
-        // Fallback: share as text if files not supported
         const text = debts.map(d => `${d.fromName} → ${d.toName}: ${fmt(d.amount)}`).join('\n')
         await navigator.share({ title: 'Hand Bet — Resultado', text })
       } else {
-        // Last resort: download the image
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
@@ -59,18 +59,16 @@ export default function FinalScreen() {
         className="sticky top-0 bg-bg border-b border-border px-4 py-4 flex items-center gap-4"
         style={{ paddingTop: 'max(16px, env(safe-area-inset-top))' }}
       >
-        <button onClick={() => nav(-1)} className="text-gray-400 text-sm">← Volver</button>
-        <h2 className="text-white font-bold text-xl flex-1 text-center">🏁 Resultado Final</h2>
+        <button onClick={() => nav(-1)} className="text-gray-400 text-sm">{tr.back}</button>
+        <h2 className="text-white font-bold text-xl flex-1 text-center">{tr.finalResult}</h2>
       </div>
 
-      {/* Logo */}
       <div className="flex justify-center py-6">
         <img src="/hand-bet.png" alt="Hand Bet" className="w-20 h-20 rounded-2xl" />
       </div>
 
-      {/* Balance per player */}
       <div className="px-4 mb-6">
-        <h3 className="text-gray-400 text-xs uppercase tracking-widest mb-3">Balance por jugador</h3>
+        <h3 className="text-gray-400 text-xs uppercase tracking-widest mb-3">{tr.balancePerPlayer}</h3>
         <div className="flex flex-col gap-2">
           {[...playerIds].sort((a, b) => (ledger[b] || 0) - (ledger[a] || 0)).map((id, i) => {
             const bal = ledger?.[id] || 0
@@ -90,10 +88,9 @@ export default function FinalScreen() {
         </div>
       </div>
 
-      {/* Simplified debts */}
       {debts.length > 0 && (
         <div className="px-4 mb-6">
-          <h3 className="text-gray-400 text-xs uppercase tracking-widest mb-3">¿Quién le paga a quién?</h3>
+          <h3 className="text-gray-400 text-xs uppercase tracking-widest mb-3">{tr.whoPayWhom}</h3>
           <div className="flex flex-col gap-2">
             {debts.map((d, i) => (
               <div key={i} className="bg-surface border border-gold/30 rounded-xl px-4 py-4 flex items-center justify-between">
@@ -112,14 +109,13 @@ export default function FinalScreen() {
       {debts.length === 0 && items.length === 0 && (
         <div className="px-4 text-center text-gray-400 py-8">
           <p className="text-4xl mb-3">🏌️</p>
-          <p>No hay apuestas registradas todavía.</p>
+          <p>{tr.noBetsYet}</p>
         </div>
       )}
 
-      {/* Detail breakdown */}
       {items.length > 0 && (
         <div className="px-4 mb-6">
-          <h3 className="text-gray-400 text-xs uppercase tracking-widest mb-3">Detalle por apuesta</h3>
+          <h3 className="text-gray-400 text-xs uppercase tracking-widest mb-3">{tr.betBreakdown}</h3>
           <div className="bg-surface border border-border rounded-xl overflow-hidden">
             {items.map((item, i) => (
               <div key={i} className="flex justify-between items-start px-4 py-3 border-b border-border/50 last:border-0">
@@ -136,7 +132,6 @@ export default function FinalScreen() {
         </div>
       )}
 
-      {/* Share button */}
       <div className="fixed bottom-0 left-0 right-0 bg-bg border-t border-border p-4" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
         <button
           onClick={share}
@@ -144,11 +139,9 @@ export default function FinalScreen() {
           className="w-full bg-gold text-bg rounded-xl py-4 font-bold text-base active:scale-95 transition-transform disabled:opacity-60 flex items-center justify-center gap-2"
         >
           {sharing ? (
-            <>
-              <span className="animate-spin">⏳</span> Generando imagen...
-            </>
+            <><span className="animate-spin">⏳</span> {tr.generatingImage}</>
           ) : (
-            <>📸 Compartir Resultado</>
+            <>{tr.shareResult}</>
           )}
         </button>
       </div>

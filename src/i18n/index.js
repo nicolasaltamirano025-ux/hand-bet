@@ -1,0 +1,359 @@
+import { createContext, useContext, useState } from 'react'
+
+const translations = {
+  es: {
+    // Common
+    back: '← Volver',
+    backStep: '← Atrás',
+    cancel: '← Cancelar',
+    loading: 'Cargando...',
+    continue: 'Continuar →',
+
+    // Home
+    newRound: '🏌️ Nueva Ronda',
+    joinRound: '🚪 Unirse a Ronda',
+    firebaseNotConfigured: '⚙️ Firebase no configurado',
+    firebaseNotConfiguredDesc: 'Copia .env.example a .env y llena tus credenciales de Firebase para activar la app.',
+
+    // Join
+    joinTitle: 'Unirse a Ronda',
+    joinSubtitle: 'Ingresa el código de 4 dígitos',
+    codeNotFound: 'Código no encontrado. Verifica e intenta de nuevo.',
+    course: 'Campo',
+    players: 'Jugadores',
+    selectName: 'Selecciona tu nombre:',
+    searching: 'Buscando...',
+    searchRound: 'Buscar Ronda',
+    joinAs: (name) => `Entrar como ${name}`,
+
+    // GameScreen
+    roundCompleted: 'Ronda completada.',
+    reference: 'referencia',
+    strokes: (n) => `+${n} ventaja${n === 1 ? '' : 's'}`,
+    previous: '← Anterior',
+    save: '💾 Guardar',
+    next: 'Siguiente →',
+    final: '🏁 Final',
+    onGreenFirstShot: '🟢 En green 1er tiro',
+    closest: '📍 Más cercano',
+    bunker: '🏖️ Bunker',
+    holeOut: '🎯 Hole-out',
+    score: 'Score',
+    putts: 'Putts',
+    drive: '💨 Drive',
+    net: 'neto',
+    birdie: '🦅 Birdie',
+    eagle: '🦅🦅 Eagle',
+    albatross: '🐦 Albatros',
+    holeInOne: '⛳ Hoyo en uno',
+    sandyPar: '🏖️ Sandy par',
+    chipIn: '🎯 Hole-out',
+    missingScore: '⚠️ Score faltante',
+    zeroPuttsTitle: '⚠️ 0 putts sin justificar',
+    missingScoreMsg: (names) => `Falta el score de: ${names}`,
+    zeroPuttsMsg: (names) => `${names} tiene 0 putts sin Hole-out marcado. ¿Hizo hole-out?`,
+    reviewBtn: 'Revisar',
+    continueAnyway: 'Continuar igual',
+    shareCodeMsg: 'Comparte este código para que los demás jugadores se unan',
+    shareCode: 'Compartir código',
+    inReview: 'EN REVIEW',
+    manoStatus: (name, n) => `🤜 Mano: ${name} · ${n} hoyos acumulados`,
+    organizerYouLabel: '⭐ Organizador (tú)',
+    playerLabel: (n) => `Jugador ${n}`,
+    roundCodeTitle: 'Código de la Ronda',
+    joinCodeMsg: (code) => `Únete a mi ronda de golf. Código: ${code}`,
+
+    // Celebrations
+    celebHoleWin: (name) => `Hoyo para\n${name}!`,
+    celebManoWin: (name, extra) => `${name} gana\n¡LA MANO!\n${extra} hoyos`,
+    celebOyes: (name) => `O'YES!\n${name}`,
+    celebZapato: (name) => `¡EL ZAPATO!\n${name}`,
+    celebDrive: (name) => `Drive\n${name}`,
+    salvamento: 'SALVAMENTO',
+    salvamentoMsg: (name) => `${name} cobra una unidad`,
+
+    // BetsScreen
+    betsStatus: 'Estado Apuestas',
+    finalBtn: 'Final →',
+    manoOpen: (n) => `🔥 ABIERTA — ${n} hoyos`,
+    manoClosed: 'Cerrada',
+    noChargesYet: 'Sin cobros aún',
+    accumulatedLabel: 'acumulados',
+    calculatedAtEnd: 'Se calculan al final',
+    accumulatedAmt: (amt) => `⏳ Acumulado: ${amt}`,
+    noUnitsYet: 'Sin unidades aún',
+    whoOwesWhom: '💳 ¿Quién le debe a quién? (parcial)',
+    perHole: '/ hoyo',
+    perOyes: "por O'yes",
+    perPutt: '/ putt',
+    manoHoles: (n) => `${n} hoyos`,
+    driveAcc: 'acum.',
+
+    // FinalScreen
+    finalResult: '🏁 Resultado Final',
+    balancePerPlayer: 'Balance por jugador',
+    whoPayWhom: '¿Quién le paga a quién?',
+    noBetsYet: 'No hay apuestas registradas todavía.',
+    betBreakdown: 'Detalle por apuesta',
+    generatingImage: 'Generando imagen...',
+    shareResult: '📸 Compartir Resultado',
+
+    // Scorecard
+    hole: 'Hoyo',
+
+    // Step1
+    selectCourse: 'Selecciona el Campo',
+    step: (n, t) => `Paso ${n} de ${t}`,
+    whichHole: '¿Por qué hoyo salen?',
+    hole1Label: 'Hoyo 1',
+    hole10Label: 'Hoyo 10',
+    frontFirst: 'Front nine primero',
+    backFirst: 'Back nine primero',
+    startingHoleNote: 'Solo aplica para rondas de 18 hoyos. El SI se ajusta automáticamente.',
+    editSI: 'Editar SI / Par por hoyo',
+    hideCourse: 'Ocultar hoyos',
+    fromH10: 'desde H10',
+    courseName: 'Nombre del campo',
+    configHoles: 'Configura par y SI de cada hoyo:',
+    manualCourse: '+ Campo Manual',
+    manualCourseDesc: 'Ingresa nombre, par y SI por hoyo',
+    useCourse: 'Usar este campo',
+
+    // Step2
+    roundTypeTitle: 'Tipo de Ronda',
+    fullRound: 'Ronda completa',
+    front9only: 'Solo hoyos 1–9',
+    back9only: 'Solo hoyos 10–18',
+    holes18: '18 Hoyos',
+    front9: 'Front 9',
+    back9: 'Back 9',
+
+    // Step3
+    playersTitle: 'Jugadores',
+    step3sub: 'hasta 6 jugadores',
+    removePlayer: '✕ Quitar',
+    namePlaceholder: 'Nombre',
+    handicap: 'Handicap',
+    addPlayer: '+ Agregar jugador',
+    enterAllNames: 'Ingresa todos los nombres',
+
+    // Step4
+    betsTitle: 'Apuestas',
+    step4sub: 'activa y configura cada apuesta',
+    manoDesc: 'Hoyos acumulados por empates',
+    valuePerHole: 'Valor por hoyo',
+    oyesDesc: "Par 3 · más cercano en green + par bruto",
+    valuePerOyes: "Valor por O'yes",
+    medalsLabel: 'Medals (stroke neto)',
+    medalsDesc: 'Front 9, Back 9 y/o Total',
+    drivesDesc: 'Par 4 y 5 · drive más largo',
+    puttsDesc: 'Cada jugador paga sus propios putts × valor',
+    valuePerPutt: 'Valor por putt',
+    unitsLabel: 'Unidades',
+    unitsDesc: 'Birdie, Eagle, Albatros, Hole-out, etc.',
+    baseValue: 'Valor base por unidad ($)',
+    multipliers: 'Multiplicadores (× valor base):',
+    seeReview: 'Ver Resumen →',
+    albatrosLabel: 'Albatros',
+    holeInOneLabel: 'Hoyo en uno',
+
+    // Step5
+    reviewTitle: 'Resumen',
+    step5sub: 'confirma y crea la ronda',
+    fieldLabel: 'Campo',
+    roundLabel: 'Ronda',
+    startingFrom: 'Salen por',
+    holeN: (n) => `Hoyo ${n}`,
+    activeBets: 'Apuestas activas',
+    creatingRound: 'Creando ronda...',
+    createRound: '🚀 Crear Ronda',
+  },
+  en: {
+    // Common
+    back: '← Back',
+    backStep: '← Back',
+    cancel: '← Cancel',
+    loading: 'Loading...',
+    continue: 'Continue →',
+
+    // Home
+    newRound: '🏌️ New Round',
+    joinRound: '🚪 Join Round',
+    firebaseNotConfigured: '⚙️ Firebase not configured',
+    firebaseNotConfiguredDesc: 'Copy .env.example to .env and fill in your Firebase credentials to activate the app.',
+
+    // Join
+    joinTitle: 'Join Round',
+    joinSubtitle: 'Enter the 4-digit code',
+    codeNotFound: 'Code not found. Please check and try again.',
+    course: 'Course',
+    players: 'Players',
+    selectName: 'Select your name:',
+    searching: 'Searching...',
+    searchRound: 'Search Round',
+    joinAs: (name) => `Join as ${name}`,
+
+    // GameScreen
+    roundCompleted: 'Round completed.',
+    reference: 'reference',
+    strokes: (n) => `+${n} stroke${n === 1 ? '' : 's'}`,
+    previous: '← Previous',
+    save: '💾 Save',
+    next: 'Next →',
+    final: '🏁 Final',
+    onGreenFirstShot: '🟢 On green 1st shot',
+    closest: '📍 Closest',
+    bunker: '🏖️ Bunker',
+    holeOut: '🎯 Hole-out',
+    score: 'Score',
+    putts: 'Putts',
+    drive: '💨 Drive',
+    net: 'net',
+    birdie: '🦅 Birdie',
+    eagle: '🦅🦅 Eagle',
+    albatross: '🐦 Albatross',
+    holeInOne: '⛳ Hole in one',
+    sandyPar: '🏖️ Sandy par',
+    chipIn: '🎯 Hole-out',
+    missingScore: '⚠️ Missing score',
+    zeroPuttsTitle: '⚠️ 0 putts unjustified',
+    missingScoreMsg: (names) => `Missing score for: ${names}`,
+    zeroPuttsMsg: (names) => `${names} has 0 putts without Hole-out marked. Did they hole out?`,
+    reviewBtn: 'Review',
+    continueAnyway: 'Continue anyway',
+    shareCodeMsg: 'Share this code for other players to join',
+    shareCode: 'Share code',
+    inReview: 'REVIEW',
+    manoStatus: (name, n) => `🤜 Mano: ${name} · ${n} holes acc.`,
+    organizerYouLabel: '⭐ Organizer (you)',
+    playerLabel: (n) => `Player ${n}`,
+    roundCodeTitle: 'Round Code',
+    joinCodeMsg: (code) => `Join my golf round. Code: ${code}`,
+
+    // Celebrations
+    celebHoleWin: (name) => `Hole for\n${name}!`,
+    celebManoWin: (name, extra) => `${name} wins\nLA MANO!\n${extra} holes`,
+    celebOyes: (name) => `O'YES!\n${name}`,
+    celebZapato: (name) => `ZAPATO!\n${name}`,
+    celebDrive: (name) => `Drive\n${name}`,
+    salvamento: 'SALVAMENTO',
+    salvamentoMsg: (name) => `${name} wins one unit`,
+
+    // BetsScreen
+    betsStatus: 'Bets Status',
+    finalBtn: 'Final →',
+    manoOpen: (n) => `🔥 OPEN — ${n} holes`,
+    manoClosed: 'Closed',
+    noChargesYet: 'No charges yet',
+    accumulatedLabel: 'accumulated',
+    calculatedAtEnd: 'Calculated at the end',
+    accumulatedAmt: (amt) => `⏳ Accumulated: ${amt}`,
+    noUnitsYet: 'No units yet',
+    whoOwesWhom: '💳 Who owes whom? (partial)',
+    perHole: '/ hole',
+    perOyes: "per O'yes",
+    perPutt: '/ putt',
+    manoHoles: (n) => `${n} holes`,
+    driveAcc: 'acc.',
+
+    // FinalScreen
+    finalResult: '🏁 Final Result',
+    balancePerPlayer: 'Balance per player',
+    whoPayWhom: 'Who pays whom?',
+    noBetsYet: 'No bets recorded yet.',
+    betBreakdown: 'Bet breakdown',
+    generatingImage: 'Generating image...',
+    shareResult: '📸 Share Result',
+
+    // Scorecard
+    hole: 'Hole',
+
+    // Step1
+    selectCourse: 'Select Course',
+    step: (n, t) => `Step ${n} of ${t}`,
+    whichHole: 'Which hole do you start from?',
+    hole1Label: 'Hole 1',
+    hole10Label: 'Hole 10',
+    frontFirst: 'Front nine first',
+    backFirst: 'Back nine first',
+    startingHoleNote: 'Only applies to 18-hole rounds. SI is adjusted automatically.',
+    editSI: 'Edit SI / Par per hole',
+    hideCourse: 'Hide holes',
+    fromH10: 'from H10',
+    courseName: 'Course name',
+    configHoles: 'Configure par and SI for each hole:',
+    manualCourse: '+ Manual Course',
+    manualCourseDesc: 'Enter name, par and SI per hole',
+    useCourse: 'Use this course',
+
+    // Step2
+    roundTypeTitle: 'Round Type',
+    fullRound: 'Full round',
+    front9only: 'Holes 1–9 only',
+    back9only: 'Holes 10–18 only',
+    holes18: '18 Holes',
+    front9: 'Front 9',
+    back9: 'Back 9',
+
+    // Step3
+    playersTitle: 'Players',
+    step3sub: 'up to 6 players',
+    removePlayer: '✕ Remove',
+    namePlaceholder: 'Name',
+    handicap: 'Handicap',
+    addPlayer: '+ Add player',
+    enterAllNames: 'Enter all names',
+
+    // Step4
+    betsTitle: 'Bets',
+    step4sub: 'enable and configure each bet',
+    manoDesc: 'Holes accumulated from ties',
+    valuePerHole: 'Value per hole',
+    oyesDesc: "Par 3 · closest on green + gross par",
+    valuePerOyes: "Value per O'yes",
+    medalsLabel: 'Medals (net stroke)',
+    medalsDesc: 'Front 9, Back 9 and/or Total',
+    drivesDesc: 'Par 4 and 5 · longest drive',
+    puttsDesc: 'Each player pays their own putts × value',
+    valuePerPutt: 'Value per putt',
+    unitsLabel: 'Units',
+    unitsDesc: 'Birdie, Eagle, Albatross, Hole-out, etc.',
+    baseValue: 'Base value per unit ($)',
+    multipliers: 'Multipliers (× base value):',
+    seeReview: 'See Summary →',
+    albatrosLabel: 'Albatross',
+    holeInOneLabel: 'Hole in one',
+
+    // Step5
+    reviewTitle: 'Summary',
+    step5sub: 'confirm and create round',
+    fieldLabel: 'Course',
+    roundLabel: 'Round',
+    startingFrom: 'Starting from',
+    holeN: (n) => `Hole ${n}`,
+    activeBets: 'Active bets',
+    creatingRound: 'Creating round...',
+    createRound: '🚀 Create Round',
+  },
+}
+
+const LanguageContext = createContext(null)
+
+export function LanguageProvider({ children }) {
+  const [lang, setLangState] = useState(() => localStorage.getItem('hb_lang') || 'es')
+
+  function setLang(l) {
+    localStorage.setItem('hb_lang', l)
+    setLangState(l)
+  }
+
+  return (
+    <LanguageContext.Provider value={{ lang, setLang, tr: translations[lang] }}>
+      {children}
+    </LanguageContext.Provider>
+  )
+}
+
+export function useLanguage() {
+  return useContext(LanguageContext)
+}

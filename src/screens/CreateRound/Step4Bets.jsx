@@ -2,17 +2,20 @@ import { useState, useEffect } from 'react'
 import Button from '../../components/ui/Button'
 import Toggle from '../../components/ui/Toggle'
 import NumberInput from '../../components/ui/NumberInput'
-
-const UNIT_KEYS = [
-  { key: 'birdie',    label: 'Birdie',      def: 1,  emoji: '🦅' },
-  { key: 'eagle',     label: 'Eagle',       def: 3,  emoji: '🦅🦅' },
-  { key: 'albatross', label: 'Albatros',    def: 20, emoji: '🐦' },
-  { key: 'holeInOne', label: 'Hoyo en uno', def: 10, emoji: '⛳' },
-  { key: 'sandyPar',  label: 'Sandy par',   def: 1,  emoji: '🏖️' },
-  { key: 'chipIn',    label: 'Hole-out',    def: 1,  emoji: '🎯' },
-]
+import { useLanguage } from '../../i18n'
 
 export default function Step4Bets({ bets, setBets, roundType, next, back }) {
+  const { tr } = useLanguage()
+
+  const UNIT_KEYS = [
+    { key: 'birdie',    label: tr.birdie.replace('🦅 ', ''),      def: 1,  emoji: '🦅' },
+    { key: 'eagle',     label: tr.eagle.replace('🦅🦅 ', ''),     def: 3,  emoji: '🦅🦅' },
+    { key: 'albatross', label: tr.albatrosLabel,                  def: 20, emoji: '🐦' },
+    { key: 'holeInOne', label: tr.holeInOneLabel,                 def: 10, emoji: '⛳' },
+    { key: 'sandyPar',  label: 'Sandy par',                       def: 1,  emoji: '🏖️' },
+    { key: 'chipIn',    label: 'Hole-out',                        def: 1,  emoji: '🎯' },
+  ]
+
   function toggle(key) {
     setBets(b => ({ ...b, [key]: { ...b[key], enabled: !b[key].enabled } }))
   }
@@ -21,65 +24,37 @@ export default function Step4Bets({ bets, setBets, roundType, next, back }) {
     setBets(b => ({ ...b, [section]: { ...b[section], [field]: val } }))
   }
 
-  const isFullRound = roundType === '18'
-
   return (
     <div className="flex flex-col px-5 pt-10 pb-8 gap-6">
-      <button onClick={back} className="text-gray-400 text-sm self-start">← Atrás</button>
+      <button onClick={back} className="text-gray-400 text-sm self-start">{tr.backStep}</button>
       <div>
-        <h1 className="text-white text-2xl font-black">Apuestas</h1>
-        <p className="text-gray-400 text-sm mt-1">Paso 4 de 5 — activa y configura cada apuesta</p>
+        <h1 className="text-white text-2xl font-black">{tr.betsTitle}</h1>
+        <p className="text-gray-400 text-sm mt-1">{tr.step(4, 5)} — {tr.step4sub}</p>
       </div>
 
-      {/* MANO */}
       <Section title="🤜 La Mano">
-        <Toggle
-          checked={bets.mano.enabled}
-          onChange={() => toggle('mano')}
-          label="La Mano"
-          description="Hoyos acumulados por empates"
-        />
+        <Toggle checked={bets.mano.enabled} onChange={() => toggle('mano')} label="La Mano" description={tr.manoDesc} />
         {bets.mano.enabled && (
-          <NumberInput
-            label="Valor por hoyo"
-            value={bets.mano.valuePerHole}
-            onChange={v => setVal('mano', 'valuePerHole', v)}
-          />
+          <NumberInput label={tr.valuePerHole} value={bets.mano.valuePerHole} onChange={v => setVal('mano', 'valuePerHole', v)} />
         )}
       </Section>
 
-      {/* O'YES */}
       <Section title="📍 O'yes">
-        <Toggle
-          checked={bets.oyes.enabled}
-          onChange={() => toggle('oyes')}
-          label="O'yes"
-          description="Par 3 · más cercano en green + par bruto"
-        />
+        <Toggle checked={bets.oyes.enabled} onChange={() => toggle('oyes')} label="O'yes" description={tr.oyesDesc} />
         {bets.oyes.enabled && (
-          <NumberInput
-            label="Valor por O'yes"
-            value={bets.oyes.value}
-            onChange={v => setVal('oyes', 'value', v)}
-          />
+          <NumberInput label={tr.valuePerOyes} value={bets.oyes.value} onChange={v => setVal('oyes', 'value', v)} />
         )}
       </Section>
 
-      {/* MEDALS */}
-      <Section title="🥇 Medals (stroke neto)">
-        <Toggle
-          checked={bets.medals.enabled}
-          onChange={() => toggle('medals')}
-          label="Medals"
-          description="Front 9, Back 9 y/o Total"
-        />
+      <Section title={`🥇 ${tr.medalsLabel}`}>
+        <Toggle checked={bets.medals.enabled} onChange={() => toggle('medals')} label="Medals" description={tr.medalsDesc} />
         {bets.medals.enabled && (
           <div className="flex flex-col gap-2 mt-1">
             {(roundType === '18' || roundType === 'front9') && (
-              <NumberInput label="Front 9" value={bets.medals.frontValue} onChange={v => setVal('medals', 'frontValue', v)} />
+              <NumberInput label={tr.front9} value={bets.medals.frontValue} onChange={v => setVal('medals', 'frontValue', v)} />
             )}
             {(roundType === '18' || roundType === 'back9') && (
-              <NumberInput label="Back 9" value={bets.medals.backValue} onChange={v => setVal('medals', 'backValue', v)} />
+              <NumberInput label={tr.back9} value={bets.medals.backValue} onChange={v => setVal('medals', 'backValue', v)} />
             )}
             {roundType === '18' && (
               <NumberInput label="Total" value={bets.medals.totalValue} onChange={v => setVal('medals', 'totalValue', v)} />
@@ -88,65 +63,32 @@ export default function Step4Bets({ bets, setBets, roundType, next, back }) {
         )}
       </Section>
 
-      {/* DRIVES */}
       <Section title="💨 Drives">
-        <Toggle
-          checked={bets.drives.enabled}
-          onChange={() => toggle('drives')}
-          label="Drives"
-          description="Par 4 y 5 · drive más largo"
-        />
+        <Toggle checked={bets.drives.enabled} onChange={() => toggle('drives')} label="Drives" description={tr.drivesDesc} />
         {bets.drives.enabled && (
-          <NumberInput
-            label="Valor por hoyo"
-            value={bets.drives.value}
-            onChange={v => setVal('drives', 'value', v)}
-          />
+          <NumberInput label={tr.valuePerHole} value={bets.drives.value} onChange={v => setVal('drives', 'value', v)} />
         )}
       </Section>
 
-      {/* PUTTS */}
       <Section title="⛳ Putts">
-        <Toggle
-          checked={bets.putts.enabled}
-          onChange={() => toggle('putts')}
-          label="Putts"
-          description="Cada jugador paga sus propios putts × valor"
-        />
+        <Toggle checked={bets.putts.enabled} onChange={() => toggle('putts')} label="Putts" description={tr.puttsDesc} />
         {bets.putts.enabled && (
-          <NumberInput
-            label="Valor por putt"
-            value={bets.putts.valuePerPutt}
-            onChange={v => setVal('putts', 'valuePerPutt', v)}
-          />
+          <NumberInput label={tr.valuePerPutt} value={bets.putts.valuePerPutt} onChange={v => setVal('putts', 'valuePerPutt', v)} />
         )}
       </Section>
 
-      {/* UNITS */}
-      <Section title="🏆 Unidades">
-        <Toggle
-          checked={bets.units.enabled}
-          onChange={() => toggle('units')}
-          label="Unidades"
-          description="Birdie, Eagle, Albatros, Hole-out, etc."
-        />
+      <Section title={`🏆 ${tr.unitsLabel}`}>
+        <Toggle checked={bets.units.enabled} onChange={() => toggle('units')} label={tr.unitsLabel} description={tr.unitsDesc} />
         {bets.units.enabled && (
           <div className="flex flex-col gap-3 mt-2">
-            <NumberInput
-              label="Valor base por unidad ($)"
-              value={bets.units.baseValue}
-              onChange={v => setVal('units', 'baseValue', v)}
-            />
-            <p className="text-gray-400 text-xs">Multiplicadores (× valor base):</p>
+            <NumberInput label={tr.baseValue} value={bets.units.baseValue} onChange={v => setVal('units', 'baseValue', v)} />
+            <p className="text-gray-400 text-xs">{tr.multipliers}</p>
             {UNIT_KEYS.map(u => (
               <div key={u.key} className="flex items-center justify-between gap-3">
                 <span className="text-white text-sm">{u.emoji} {u.label}</span>
                 <div className="flex items-center gap-1">
                   <span className="text-gray-400 text-sm">×</span>
-                  <MultiplierInput
-                    value={bets.units[u.key] ?? u.def}
-                    onChange={v => setVal('units', u.key, v)}
-                  />
+                  <MultiplierInput value={bets.units[u.key] ?? u.def} onChange={v => setVal('units', u.key, v)} />
                 </div>
               </div>
             ))}
@@ -154,16 +96,14 @@ export default function Step4Bets({ bets, setBets, roundType, next, back }) {
         )}
       </Section>
 
-      <Button onClick={next} className="w-full mt-2">Ver Resumen →</Button>
+      <Button onClick={next} className="w-full mt-2">{tr.seeReview}</Button>
     </div>
   )
 }
 
 function MultiplierInput({ value, onChange }) {
   const [local, setLocal] = useState(String(value ?? 1))
-
   useEffect(() => { setLocal(String(value ?? 1)) }, [value])
-
   return (
     <input
       type="text"

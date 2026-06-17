@@ -48,7 +48,7 @@ export function ManoFlameBadge({ accumulated }) {
   )
 }
 
-export function SalvamentoOverlay({ receiverName, onDone }) {
+export function SalvamentoOverlay({ receiverName, label, msg, onDone }) {
   const [visible, setVisible] = useState(true)
 
   useEffect(() => {
@@ -62,8 +62,8 @@ export function SalvamentoOverlay({ receiverName, onDone }) {
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/80 animate-pop-in">
       <div className="text-7xl mb-4">🛡️</div>
-      <div className="text-blue-300 font-black text-3xl text-center px-8">SALVAMENTO</div>
-      <div className="text-white text-xl mt-2">{receiverName} cobra una unidad</div>
+      <div className="text-blue-300 font-black text-3xl text-center px-8">{label || 'SALVAMENTO'}</div>
+      <div className="text-white text-xl mt-2">{msg || `${receiverName} cobra una unidad`}</div>
     </div>
   )
 }

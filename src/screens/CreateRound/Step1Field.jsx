@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { COURSES, MANUAL_COURSE_TEMPLATE } from '../../data/courses'
 import Button from '../../components/ui/Button'
 import { useNavigate } from 'react-router-dom'
+import { useLanguage } from '../../i18n'
 
 export default function Step1Field({ field, setField, startingHole, setStartingHole, next }) {
   const nav = useNavigate()
+  const { tr } = useLanguage()
   const [showManual, setShowManual] = useState(false)
   const [manual, setManual] = useState(MANUAL_COURSE_TEMPLATE)
   const [editingCourse, setEditingCourse] = useState(null)
@@ -35,24 +37,22 @@ export default function Step1Field({ field, setField, startingHole, setStartingH
     })
   }
 
-  // Resolve SI based on current starting hole
   function getSI(h) {
     return startingHole === 10 && h.si10 != null ? h.si10 : h.si
   }
 
   return (
     <div className="flex flex-col px-5 pt-10 pb-8 gap-6">
-      <button onClick={() => nav('/')} className="text-gray-400 text-sm self-start">← Cancelar</button>
+      <button onClick={() => nav('/')} className="text-gray-400 text-sm self-start">{tr.cancel}</button>
       <div>
-        <h1 className="text-white text-2xl font-black">Selecciona el Campo</h1>
-        <p className="text-gray-400 text-sm mt-1">Paso 1 de 5</p>
+        <h1 className="text-white text-2xl font-black">{tr.selectCourse}</h1>
+        <p className="text-gray-400 text-sm mt-1">{tr.step(1, 5)}</p>
       </div>
 
-      {/* Starting hole selector — at the top so SI is correct when reviewing the field */}
       <div className="bg-surface border border-border rounded-xl p-4 flex flex-col gap-3">
-        <p className="text-white font-semibold text-sm">¿Por qué hoyo salen?</p>
+        <p className="text-white font-semibold text-sm">{tr.whichHole}</p>
         <div className="flex gap-3">
-          {[{ hole: 1, label: 'Hoyo 1', sub: 'Front nine primero' }, { hole: 10, label: 'Hoyo 10', sub: 'Back nine primero' }].map(opt => (
+          {[{ hole: 1, label: tr.hole1Label, sub: tr.frontFirst }, { hole: 10, label: tr.hole10Label, sub: tr.backFirst }].map(opt => (
             <button
               key={opt.hole}
               onClick={() => setStartingHole(opt.hole)}
@@ -63,7 +63,7 @@ export default function Step1Field({ field, setField, startingHole, setStartingH
             </button>
           ))}
         </div>
-        <p className="text-gray-500 text-xs">Solo aplica para rondas de 18 hoyos. El SI se ajusta automáticamente.</p>
+        <p className="text-gray-500 text-xs">{tr.startingHoleNote}</p>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -85,16 +85,16 @@ export default function Step1Field({ field, setField, startingHole, setStartingH
                   onClick={() => setEditingCourse(editingCourse === c.id ? null : c.id)}
                   className="text-gold text-xs underline"
                 >
-                  {editingCourse === c.id ? 'Ocultar hoyos' : 'Editar SI / Par por hoyo'}
+                  {editingCourse === c.id ? tr.hideCourse : tr.editSI}
                 </button>
                 {editingCourse === c.id && (
                   <div className="mt-3 overflow-x-auto">
                     <table className="w-full text-xs text-white">
                       <thead>
                         <tr className="text-gray-400">
-                          <th className="text-left pb-2">Hoyo</th>
+                          <th className="text-left pb-2">{tr.hole}</th>
                           <th className="pb-2">Par</th>
-                          <th className="pb-2">SI {startingHole === 10 && field?.holes?.some(h => h.si10) ? '(desde H10)' : ''}</th>
+                          <th className="pb-2">SI {startingHole === 10 && field?.holes?.some(h => h.si10) ? `(${tr.fromH10})` : ''}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -134,25 +134,25 @@ export default function Step1Field({ field, setField, startingHole, setStartingH
           onClick={() => { setShowManual(true); setField(null) }}
           className={`rounded-xl border px-4 py-4 text-left transition-colors ${showManual ? 'border-gold' : 'border-border'}`}
         >
-          <p className={`font-semibold text-base ${showManual ? 'text-gold' : 'text-white'}`}>+ Campo Manual</p>
-          <p className="text-gray-400 text-xs">Ingresa nombre, par y SI por hoyo</p>
+          <p className={`font-semibold text-base ${showManual ? 'text-gold' : 'text-white'}`}>{tr.manualCourse}</p>
+          <p className="text-gray-400 text-xs">{tr.manualCourseDesc}</p>
         </button>
       </div>
 
       {showManual && (
         <div className="flex flex-col gap-4 bg-surface border border-border rounded-xl p-4">
           <input
-            placeholder="Nombre del campo"
+            placeholder={tr.courseName}
             value={manual.name}
             onChange={e => handleManualChange('name', e.target.value)}
             className="bg-bg border border-border rounded-xl px-4 py-3 text-white outline-none focus:border-gold"
           />
-          <p className="text-gray-400 text-xs">Configura par y SI de cada hoyo:</p>
+          <p className="text-gray-400 text-xs">{tr.configHoles}</p>
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-white">
               <thead>
                 <tr className="text-gray-400 text-center">
-                  <th className="text-left pb-2">Hoyo</th>
+                  <th className="text-left pb-2">{tr.hole}</th>
                   <th className="pb-2">Par</th>
                   <th className="pb-2">SI</th>
                 </tr>
@@ -185,13 +185,13 @@ export default function Step1Field({ field, setField, startingHole, setStartingH
             </table>
           </div>
           <Button onClick={() => { setField({ ...manual, id: 'manual' }) }} variant="outline" className="w-full">
-            Usar este campo
+            {tr.useCourse}
           </Button>
         </div>
       )}
 
       <Button onClick={next} disabled={!field} className="w-full mt-auto">
-        Continuar →
+        {tr.continue}
       </Button>
     </div>
   )

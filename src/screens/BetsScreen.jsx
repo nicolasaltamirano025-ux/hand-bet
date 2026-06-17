@@ -2,12 +2,14 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useRound } from '../hooks/useRound'
 import { strokesOnHole, getMinHCP } from '../utils/handicap'
 import { computeSettlement } from '../utils/settlement'
+import { useLanguage } from '../i18n'
 
 const fmt = n => `$${Number(n || 0).toLocaleString('es-MX')}`
 
 export default function BetsScreen() {
   const { code } = useParams()
   const nav = useNavigate()
+  const { tr } = useLanguage()
   const { round, loading } = useRound(code)
 
   if (loading || !round) return <Loading />
@@ -30,37 +32,35 @@ export default function BetsScreen() {
         className="sticky top-0 bg-bg border-b border-border px-4 py-4 flex items-center gap-4"
         style={{ paddingTop: 'max(16px, env(safe-area-inset-top))' }}
       >
-        <button onClick={() => nav(-1)} className="text-gray-400 text-sm">← Volver</button>
-        <h2 className="text-white font-bold text-lg flex-1 text-center">Estado Apuestas</h2>
-        <button onClick={() => nav(`/round/${code}/final`)} className="text-gold text-sm">Final →</button>
+        <button onClick={() => nav(-1)} className="text-gray-400 text-sm">{tr.back}</button>
+        <h2 className="text-white font-bold text-lg flex-1 text-center">{tr.betsStatus}</h2>
+        <button onClick={() => nav(`/round/${code}/final`)} className="text-gold text-sm">{tr.finalBtn}</button>
       </div>
 
       <div className="flex flex-col gap-4 px-4 pt-4">
 
-        {/* MANO */}
         {bets?.mano?.enabled && (
-          <Card title="🤜 La Mano" sub={`${fmt(bets.mano.valuePerHole)} / hoyo`}>
+          <Card title="🤜 La Mano" sub={`${fmt(bets.mano.valuePerHole)} ${tr.perHole}`}>
             <div className="flex items-center gap-3 mb-3">
               <div className={`text-sm font-semibold px-3 py-1 rounded-full ${manoState?.isOpen ? 'bg-orange-900 text-orange-200' : 'bg-surface text-gray-400'}`}>
-                {manoState?.isOpen ? `🔥 ABIERTA — ${manoState.accumulated} hoyos` : 'Cerrada'}
+                {manoState?.isOpen ? tr.manoOpen(manoState.accumulated) : tr.manoClosed}
               </div>
               {manoState?.holderId && <span className="text-white text-sm">{players[manoState.holderId]?.name}</span>}
             </div>
             {manoHoleWins.length > 0 ? manoHoleWins.map((e, i) => (
               <EventRow key={i}
-                label={e.type === 'mano_win' ? `Mano H${e.holeNum} (${e.units} hoyos)` : `Hoyo ${e.holeNum}`}
+                label={e.type === 'mano_win' ? `Mano H${e.holeNum} (${tr.manoHoles(e.units)})` : `${tr.hole} ${e.holeNum}`}
                 value={players[e.winnerId]?.name}
                 amount={e.units * bets.mano.valuePerHole}
               />
-            )) : <p className="text-gray-500 text-sm">Sin cobros aún</p>}
+            )) : <p className="text-gray-500 text-sm">{tr.noChargesYet}</p>}
           </Card>
         )}
 
-        {/* O'YES */}
         {bets?.oyes?.enabled && (
-          <Card title="📍 O'yes" sub={`${fmt(bets.oyes.value)} por O'yes${oyesState?.zapatoTriggered ? ' · ×2 ZAPATO 👟' : ''}`}>
+          <Card title="📍 O'yes" sub={`${fmt(bets.oyes.value)} ${tr.perOyes}${oyesState?.zapatoTriggered ? ' · ×2 ZAPATO 👟' : ''}`}>
             {oyesState?.accumulated > 0 && (
-              <div className="text-yellow-400 text-sm font-semibold mb-2">⏳ {oyesState.accumulated} acumulados</div>
+              <div className="text-yellow-400 text-sm font-semibold mb-2">⏳ {oyesState.accumulated} {tr.accumulatedLabel}</div>
             )}
             {oyesWins.length > 0 ? oyesWins.map((e, i) => (
               <EventRow key={i}
@@ -68,13 +68,12 @@ export default function BetsScreen() {
                 value={e.winners.map(id => players[id]?.name).join(', ')}
                 amount={e.units * bets.oyes.value * (oyesState?.zapatoTriggered ? 2 : 1)}
               />
-            )) : <p className="text-gray-500 text-sm">Sin cobros aún</p>}
+            )) : <p className="text-gray-500 text-sm">{tr.noChargesYet}</p>}
           </Card>
         )}
 
-        {/* MEDALS */}
         {bets?.medals?.enabled && (
-          <Card title="🥇 Medals (neto)" sub="Se calculan al final">
+          <Card title="🥇 Medals" sub={tr.calculatedAtEnd}>
             {['front', 'back', 'total'].filter(c => bets.medals[`${c === 'total' ? 'total' : c}Value`]).map(cat => {
               const catHoles = cat === 'front' ? holes.filter(h => h.n <= 9) : cat === 'back' ? holes.filter(h => h.n >= 10) : holes
               const netTotals = playerIds.map(id => {
@@ -87,7 +86,7 @@ export default function BetsScreen() {
 
               return (
                 <div key={cat} className="mb-3">
-                  <p className="text-gray-400 text-xs mb-1 uppercase tracking-wide">{cat === 'front' ? 'Front 9' : cat === 'back' ? 'Back 9' : 'Total'}</p>
+                  <p className="text-gray-400 text-xs mb-1 uppercase tracking-wide">{cat === 'front' ? tr.front9 : cat === 'back' ? tr.back9 : 'Total'}</p>
                   {netTotals.map(({ id, net }, i) => (
                     <div key={id} className="flex justify-between py-1">
                       <span className={`text-sm ${i === 0 ? 'text-gold font-bold' : 'text-white'}`}>{i === 0 ? '🥇 ' : ''}{players[id]?.name}</span>
@@ -100,25 +99,23 @@ export default function BetsScreen() {
           </Card>
         )}
 
-        {/* DRIVES */}
         {bets?.drives?.enabled && (
-          <Card title="💨 Drives" sub={`${fmt(bets.drives.value)} / hoyo`}>
+          <Card title="💨 Drives" sub={`${fmt(bets.drives.value)} ${tr.perHole}`}>
             {(drivesAccumulated || 0) > 0 && (
-              <div className="text-yellow-400 text-sm font-semibold mb-2">⏳ Acumulado: {fmt(drivesAccumulated)}</div>
+              <div className="text-yellow-400 text-sm font-semibold mb-2">{tr.accumulatedAmt(fmt(drivesAccumulated))}</div>
             )}
             {driveWins.length > 0 ? driveWins.map((e, i) => (
               <EventRow key={i}
-                label={`Drive H${e.holeNum}${e.totalValue > bets.drives.value ? ` (acum.)` : ''}`}
+                label={`Drive H${e.holeNum}${e.totalValue > bets.drives.value ? ` (${tr.driveAcc})` : ''}`}
                 value={players[e.winnerId]?.name}
                 amount={e.totalValue}
               />
-            )) : <p className="text-gray-500 text-sm">Sin cobros aún</p>}
+            )) : <p className="text-gray-500 text-sm">{tr.noChargesYet}</p>}
           </Card>
         )}
 
-        {/* PUTTS */}
         {bets?.putts?.enabled && (
-          <Card title="⛳ Putts" sub={`${fmt(bets.putts.valuePerPutt)} / putt`}>
+          <Card title="⛳ Putts" sub={`${fmt(bets.putts.valuePerPutt)} ${tr.perPutt}`}>
             {playerIds.map(id => {
               const total = holes.reduce((s, h) => s + (round.holes?.[h.n]?.scores?.[id]?.putts || 0), 0)
               return (
@@ -131,22 +128,20 @@ export default function BetsScreen() {
           </Card>
         )}
 
-        {/* UNITS */}
         {bets?.units?.enabled && (
-          <Card title="🏆 Unidades" sub={`Base ${fmt(bets.units?.baseValue)}`}>
+          <Card title={`🏆 ${tr.unitsLabel}`} sub={`Base ${fmt(bets.units?.baseValue)}`}>
             {(round.unitsEvents || []).length > 0 ? (round.unitsEvents || []).map((ev, i) => (
               <div key={i} className="flex justify-between py-1 border-b border-border/30 last:border-0">
                 <span className="text-white text-sm">{players[ev.playerId]?.name} · H{ev.holeNum}</span>
                 <span className="text-gold text-sm">{ev.units.join(', ')}</span>
               </div>
-            )) : <p className="text-gray-500 text-sm">Sin unidades aún</p>}
+            )) : <p className="text-gray-500 text-sm">{tr.noUnitsYet}</p>}
           </Card>
         )}
 
-        {/* DEBT SUMMARY */}
         {settlement.debts.length > 0 && (
           <div className="bg-surface border border-gold/30 rounded-xl p-4">
-            <h3 className="text-white font-bold text-sm mb-3">💳 ¿Quién le debe a quién? (parcial)</h3>
+            <h3 className="text-white font-bold text-sm mb-3">{tr.whoOwesWhom}</h3>
             <div className="flex flex-col gap-2">
               {settlement.debts.map((d, i) => (
                 <div key={i} className="flex items-center justify-between py-1.5 border-b border-border/30 last:border-0">

@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useRound } from '../hooks/useRound'
 import { computeSettlement } from '../utils/settlement'
 import { generateShareImage } from '../utils/shareImage'
 import { useLanguage } from '../i18n'
+import { useAuth } from '../contexts/AuthContext'
+import { recordRoundResult } from '../firebase/userService'
 
 const fmt = n => `$${Math.abs(Number(n || 0)).toLocaleString('es-MX')}`
 
@@ -11,8 +13,28 @@ export default function FinalScreen() {
   const { code } = useParams()
   const nav = useNavigate()
   const { tr } = useLanguage()
+  const { user } = useAuth()
   const { round, loading } = useRound(code)
   const [sharing, setSharing] = useState(false)
+  const recordedRef = useRef(false)
+
+  useEffect(() => {
+    if (!user || !round || recordedRef.current) return
+    const myPlayerId = localStorage.getItem(`hb_player_${code}`)
+    if (!myPlayerId || !round.players?.[myPlayerId]) return
+    let settlement
+    try { settlement = computeSettlement(round) } catch { return }
+    const myNet = Math.round(settlement.ledger?.[myPlayerId] || 0)
+    recordedRef.current = true
+    recordRoundResult(user.uid, code, {
+      field:       round.field?.name || '',
+      roundType:   round.roundType  || '18',
+      holesPlayed: Object.keys(round.holes || {}).length,
+      totalNet:    myNet,
+      role:        round.players[myPlayerId]?.isCreator ? 'creator' : 'player',
+      playerName:  round.players[myPlayerId]?.name || '',
+    })
+  }, [user, round, code])
 
   if (loading || !round) return <Loading />
 

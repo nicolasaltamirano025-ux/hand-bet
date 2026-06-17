@@ -61,6 +61,7 @@ export default function GameScreen() {
   const [validation, setValidation] = useState(null) // { type: 'missing'|'zero_putts', names: [] }
   const savingRef = useRef(false)
   const lastCelebrationTsRef = useRef(null)
+  const initialHoleSet = useRef(false)
 
   useEffect(() => {
     if (searchParams.get('new') === '1') {
@@ -80,6 +81,18 @@ export default function GameScreen() {
   const playerIds = Object.keys(players)
   const bets = round?.bets || {}
   const minHCP = getMinHCP(players)
+
+  // On first load, jump to the last hole that has saved scores
+  useEffect(() => {
+    if (initialHoleSet.current || holes.length === 0) return
+    initialHoleSet.current = true
+    let lastIdx = 0
+    for (let i = 0; i < holes.length; i++) {
+      const saved = round?.holes?.[holes[i].n]?.scores || {}
+      if (Object.keys(saved).length > 0) lastIdx = i
+    }
+    setCurrentHoleIdx(lastIdx)
+  }, [holes])
 
   useEffect(() => {
     if (!currentHole) return

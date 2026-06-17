@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth } from '../firebase/config'
+import { getRedirectResult } from '../firebase/auth'
 import { getUserProfile, saveUserProfile } from '../firebase/userService'
 
 const AuthContext = createContext(null)
@@ -12,6 +13,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (!auth) { setUser(null); return }
+    getRedirectResult(auth).catch(() => {})
     return onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser)

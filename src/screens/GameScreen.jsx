@@ -60,6 +60,7 @@ export default function GameScreen() {
   const [saving, setSaving] = useState(false)
   const [validation, setValidation] = useState(null) // { type: 'missing'|'zero_putts', names: [] }
   const savingRef = useRef(false)
+  const lastCelebrationTsRef = useRef(null)
 
   useEffect(() => {
     if (searchParams.get('new') === '1') {
@@ -88,6 +89,26 @@ export default function GameScreen() {
     }
     setPendingScore(existing)
   }, [currentHoleIdx, round?.holes])
+
+  // Watch celebration field in Firebase and display for all players
+  useEffect(() => {
+    const c = round?.celebration
+    if (!c?.ts || c.ts === lastCelebrationTsRef.current) return
+    lastCelebrationTsRef.current = c.ts
+    const celebMap = {
+      hole_win: ev => ({ emoji: '🏆', message: `Hoyo para\n${ev.name}!` }),
+      mano_win: ev => ({ emoji: '🤜', message: `${ev.name} gana\n¡LA MANO!\n${ev.extra} hoyos` }),
+      oyes:     ev => ({ emoji: '📍', message: `O'YES!\n${ev.name}` }),
+      zapato:   ev => ({ emoji: '👟', message: `¡EL ZAPATO!\n${ev.name}` }),
+      drive:    ev => ({ emoji: '💨', message: `Drive\n${ev.name}` }),
+    }
+    ;(c.events || []).forEach((ev, i) => {
+      setTimeout(() => {
+        if (ev.type === 'salvamento') setSalvamentoAlert(ev.name)
+        else { const cel = celebMap[ev.type]?.(ev); if (cel) setCelebration(cel) }
+      }, i * 2800)
+    })
+  }, [round?.celebration?.ts])
 
   if (loading || !round) return <Loading />
   if (!currentHole) return <div className="text-white p-8">Ronda completada.</div>
@@ -171,6 +192,8 @@ export default function GameScreen() {
     const si = currentHole.si
     const updates = {}
 
+    const celebrationsToFire = []
+
     // Save scores
     for (const id of playerIds) {
       const s = pendingScore[id] || {}
@@ -204,7 +227,7 @@ export default function GameScreen() {
         if (!mState.isOpen && mState.accumulated === 0) {
           if (winners.length === 1) {
             newManoEvents.push({ type: 'hole_win', winnerId: winners[0], holeNum, units: 1 })
-            triggerCelebration('hole_win', players[winners[0]]?.name)
+            celebrationsToFire.push({ type: 'hole_win', name: players[winners[0]]?.name })
           } else {
             mState = { holderId: null, isOpen: true, accumulated: 1 }
             newManoEvents.push({ type: 'mano_open', holeNum })
@@ -214,12 +237,12 @@ export default function GameScreen() {
           if (winners.length === 1) {
             newManoEvents.push({ type: 'mano_win', winnerId: winners[0], holeNum, units: totalAcc })
             mState = { holderId: null, isOpen: false, accumulated: 0 }
-            triggerCelebration('mano_win', players[winners[0]]?.name, totalAcc)
+            celebrationsToFire.push({ type: 'mano_win', name: players[winners[0]]?.name, extra: totalAcc })
           } else {
             if (mState.accumulated >= 10 && mState.holderId && winners.includes(mState.holderId) && winners.length === 2) {
               const other = winners.find(id => id !== mState.holderId)
               newManoEvents.push({ type: 'salvamento', receiverId: other, holeNum, accumulated: mState.accumulated, manoHolderId: mState.holderId })
-              setSalvamentoAlert(players[other]?.name)
+              celebrationsToFire.push({ type: 'salvamento', name: players[other]?.name })
             }
             mState = { ...mState, accumulated: totalAcc }
             newManoEvents.push({ type: 'mano_accumulated', holeNum, newTotal: totalAcc })
@@ -227,7 +250,7 @@ export default function GameScreen() {
         } else {
           if (winners.length === 1) {
             newManoEvents.push({ type: 'hole_win', winnerId: winners[0], holeNum, units: 1 })
-            triggerCelebration('hole_win', players[winners[0]]?.name)
+            celebrationsToFire.push({ type: 'hole_win', name: players[winners[0]]?.name })
           } else {
             mState = { holderId: null, isOpen: true, accumulated: 1 }
             newManoEvents.push({ type: 'mano_open', holeNum })
@@ -262,14 +285,14 @@ export default function GameScreen() {
         }
         oyesSt.accumulated = 0
         newOyesEvents.push({ type: 'oyes_won', winners, holeNum, units: totalUnits, wasAccumulated: wasAcc })
-        triggerCelebration('oyes', winners.map(id => players[id]?.name).join(' y '), totalUnits)
+        celebrationsToFire.push({ type: 'oyes', name: winners.map(id => players[id]?.name).join(' y ') })
 
         const par3Count = holes.filter(h => h.par === 3).length
         if (!oyesSt.zapatoTriggered && !wasAcc && oyesSt.wonSequentially.length >= par3Count && par3Count > 0) {
           if (oyesSt.wonSequentially.every(id => id === oyesSt.wonSequentially[0])) {
             oyesSt.zapatoTriggered = true
             newOyesEvents.push({ type: 'zapato', winnerId: oyesSt.wonSequentially[0] })
-            triggerCelebration('zapato', players[oyesSt.wonSequentially[0]]?.name)
+            celebrationsToFire.push({ type: 'zapato', name: players[oyesSt.wonSequentially[0]]?.name })
           }
         }
       }
@@ -293,7 +316,7 @@ export default function GameScreen() {
         const total = drivesAcc + baseVal
         newDriveEvents.push({ type: 'drive_won', winnerId: driveWinner, holeNum, totalValue: total })
         updates['drivesAccumulated'] = 0
-        triggerCelebration('drive', players[driveWinner]?.name)
+        celebrationsToFire.push({ type: 'drive', name: players[driveWinner]?.name })
       }
       updates['driveEvents'] = newDriveEvents
     }
@@ -310,21 +333,13 @@ export default function GameScreen() {
       updates['unitsEvents'] = newUnitsEvents
     }
 
+    if (celebrationsToFire.length > 0) {
+      updates['celebration'] = { events: celebrationsToFire, ts: Date.now() }
+    }
+
     await updateRoundDeep(code, updates)
     savingRef.current = false
     setSaving(false)
-  }
-
-  function triggerCelebration(type, name, extra) {
-    const map = {
-      hole_win: { emoji: '🏆', message: `Hoyo para\n${name}!` },
-      mano_win: { emoji: '🤜', message: `${name} gana\n¡LA MANO!\n${extra} hoyos` },
-      oyes:     { emoji: '📍', message: `O'YES!\n${name}` },
-      zapato:   { emoji: '👟', message: `¡EL ZAPATO!\n${name}` },
-      drive:    { emoji: '💨', message: `Drive\n${name}` },
-    }
-    const c = map[type]
-    if (c) setTimeout(() => setCelebration(c), 300)
   }
 
   return (

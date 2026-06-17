@@ -46,6 +46,25 @@ export async function setHoleScore(code, holeNum, playerId, scoreData) {
   await update(ref(db, `rounds/${code}/holes/${holeNum}/scores/${playerId}`), scoreData)
 }
 
+export async function proposePendingScore(code, holeNum, playerId, scoreData) {
+  guard()
+  await update(ref(db, `rounds/${code}/holes/${holeNum}/pendingScores/${playerId}`), scoreData)
+}
+
+export async function acceptPendingScore(code, holeNum, playerId) {
+  guard()
+  const snap = await get(ref(db, `rounds/${code}/holes/${holeNum}/pendingScores/${playerId}`))
+  if (snap.exists()) {
+    await update(ref(db, `rounds/${code}/holes/${holeNum}/scores/${playerId}`), snap.val())
+    await set(ref(db, `rounds/${code}/holes/${holeNum}/pendingScores/${playerId}`), null)
+  }
+}
+
+export async function rejectPendingScore(code, holeNum, playerId) {
+  guard()
+  await set(ref(db, `rounds/${code}/holes/${holeNum}/pendingScores/${playerId}`), null)
+}
+
 export async function addReviewMessage(code, holeNum, message) {
   guard()
   const newRef = push(ref(db, `rounds/${code}/holes/${holeNum}/review/messages`))

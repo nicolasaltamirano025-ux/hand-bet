@@ -53,6 +53,20 @@ export default function ScorecardScreen() {
   const front = holes.filter(h => h.n <= 9)
   const back  = holes.filter(h => h.n >= 10)
 
+  // Hole wins per player (for circle decoration)
+  const holeWinnerMap = {}  // { holeNum: playerId }
+  for (const ev of (round.manoEvents || [])) {
+    if (ev.type === 'mano_win' || ev.type === 'hole_win') {
+      holeWinnerMap[ev.holeNum] = ev.winnerId
+    }
+  }
+
+  // Unit achievements per player per hole (for asterisk)
+  const unitMap = {}  // { `${holeNum}_${playerId}`: true }
+  for (const ev of (round.unitsEvents || [])) {
+    if (ev.units?.length > 0) unitMap[`${ev.holeNum}_${ev.playerId}`] = true
+  }
+
   return (
     <div className="flex flex-col min-h-dvh bg-bg">
       <div
@@ -95,11 +109,19 @@ export default function ScorecardScreen() {
                   {holes.map(h => {
                     const g = round.holes?.[h.n]?.scores?.[id]?.gross
                     const diff = g != null ? g - h.par : null
+                    const wonHole = holeWinnerMap[h.n] === id
+                    const hasUnit = unitMap[`${h.n}_${id}`]
+                    const color = diff == null ? 'text-gray-600'
+                      : diff <= -2 ? 'text-yellow-400'
+                      : diff === -1 ? 'text-green-400'
+                      : diff === 0 ? 'text-blue-400'
+                      : 'text-white'
                     return (
-                      <td key={h.n} className={`px-2 py-2 text-center font-bold ${diff == null ? 'text-gray-600' : diff < 0 ? 'text-red-400' : diff === 0 ? 'text-blue-400' : 'text-white'}`}>
-                        {g ?? '·'}
-                        {diff != null && diff === -2 && <span className="text-[9px] block text-yellow-400">E</span>}
-                        {diff != null && diff === -1 && <span className="text-[9px] block text-red-400">B</span>}
+                      <td key={h.n} className="px-1 py-2 text-center">
+                        <div className={`inline-flex flex-col items-center justify-center w-7 h-7 rounded-full font-bold text-xs ${color} ${wonHole ? 'ring-1 ring-gold' : ''}`}>
+                          {g ?? '·'}
+                          {hasUnit && <span className="text-[8px] text-gold leading-none">★</span>}
+                        </div>
                       </td>
                     )
                   })}

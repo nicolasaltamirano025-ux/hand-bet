@@ -6,6 +6,7 @@ import { useLanguage } from '../i18n'
 export default function HomeScreen() {
   const nav = useNavigate()
   const { lang, setLang, tr } = useLanguage()
+  const lastRound = localStorage.getItem('hb_last_round')
 
   return (
     <div className="flex flex-col items-center justify-center min-h-dvh bg-bg px-6 gap-8 relative" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
@@ -30,6 +31,11 @@ export default function HomeScreen() {
       )}
 
       <div className="flex flex-col w-full max-w-xs gap-3">
+        {lastRound && isConfigured && (
+          <Button onClick={() => nav(`/round/${lastRound}`)} className="w-full text-lg py-5 bg-gold/20 border border-gold text-gold">
+            {tr.resumeRound(lastRound)}
+          </Button>
+        )}
         <Button onClick={() => nav('/create')} className="w-full text-lg py-5" disabled={!isConfigured}>
           {tr.newRound}
         </Button>

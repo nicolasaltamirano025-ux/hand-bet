@@ -81,6 +81,7 @@ export default function CreateRound() {
 
     const code = await createRound(roundData)
     localStorage.setItem(`hb_player_${code}`, 'p1')
+    localStorage.setItem('hb_last_round', code)
     setSaving(false)
     nav(`/round/${code}?new=1`)
   }

@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useRound, usePlayer } from '../hooks/useRound'
 import { strokesOnHole, getMinHCP } from '../utils/handicap'
 import { detectUnits } from '../utils/gameLogic'
-import { updateRoundDeep } from '../firebase/roundsService'
+import { updateRoundDeep, proposePendingScore, acceptPendingScore, rejectPendingScore } from '../firebase/roundsService'
 import { CelebrationOverlay, ManoFlameBadge, SalvamentoOverlay } from '../components/animations/Celebration'
 import ReviewModal from '../components/game/ReviewModal'
 import Modal from '../components/ui/Modal'
@@ -120,7 +120,12 @@ export default function GameScreen() {
     if (!currentHole) return
     const existing = {}
     for (const id of playerIds) {
-      existing[id] = { ...(round?.holes?.[currentHole.n]?.scores?.[id] || {}) }
+      const official = round?.holes?.[currentHole.n]?.scores?.[id] || {}
+      const proposal = round?.holes?.[currentHole.n]?.pendingScores?.[id] || {}
+      // For own card (non-creator), pre-load their pending proposal if they have one
+      existing[id] = (id === localPlayerId && Object.keys(proposal).length > 0)
+        ? { ...proposal }
+        : { ...official }
     }
     setPendingScore(existing)
   }, [currentHoleIdx, round?.holes])
@@ -159,6 +164,21 @@ export default function GameScreen() {
   const holderName = manoState.holderId ? players[manoState.holderId]?.name : null
   const holeReviews = round.holes?.[currentHole.n]?.reviews || {}
   const hasPendingReview = Object.values(holeReviews).some(r => r.status === 'pending')
+  const holeProposals = round.holes?.[currentHole.n]?.pendingScores || {}
+
+  async function handlePropose() {
+    if (!localPlayerId || !currentHole) return
+    const score = pendingScore[localPlayerId] || {}
+    await proposePendingScore(code, currentHole.n, localPlayerId, score)
+  }
+
+  async function handleAcceptProposal(playerId) {
+    await acceptPendingScore(code, currentHole.n, playerId)
+  }
+
+  async function handleRejectProposal(playerId) {
+    await rejectPendingScore(code, currentHole.n, playerId)
+  }
 
   function updateScore(playerId, field, value) {
     setPendingScore(prev => ({
@@ -238,6 +258,15 @@ export default function GameScreen() {
     if (bets.oyes?.enabled && currentHole.par === 3) {
       setValidation({ type: 'oyes_reminder' })
       return
+    }
+
+    // Drive reminder on par 4/5 when no winner was marked
+    if (bets.drives?.enabled && (currentHole.par === 4 || currentHole.par === 5)) {
+      const hasDriveWinner = playerIds.some(id => pendingScore[id]?.driveWinner === true)
+      if (!hasDriveWinner) {
+        setValidation({ type: 'drive_reminder' })
+        return
+      }
     }
 
     saveAndNavigate()
@@ -478,10 +507,16 @@ export default function GameScreen() {
               hole={currentHole}
               bets={bets}
               isCreator={isCreator}
+              isMyCard={!isCreator && id === localPlayerId}
+              proposal={isCreator ? (holeProposals[id] || null) : null}
+              myPendingProposal={!isCreator && id === localPlayerId ? (holeProposals[id] || null) : null}
               minHCP={minHCP}
               onChange={(field, val) => updateScore(id, field, val)}
               onSetDriveWinner={() => setDriveWinner(id)}
               onSetOyesClosest={() => setOyesClosest(id)}
+              onPropose={id === localPlayerId ? handlePropose : undefined}
+              onAcceptProposal={isCreator ? () => handleAcceptProposal(id) : undefined}
+              onRejectProposal={isCreator ? () => handleRejectProposal(id) : undefined}
             />
           ))}
         </div>
@@ -595,18 +630,28 @@ export default function GameScreen() {
           </div>
         </Modal>
       )}
+      {validation && validation.type === 'drive_reminder' && (
+        <Modal open onClose={() => saveAndNavigate()} title={tr.driveReminderTitle}>
+          <p className="text-gray-300 text-sm mb-5">{tr.driveReminderMsg}</p>
+          <div className="flex gap-3">
+            <Button onClick={saveAndNavigate} variant="outline" className="flex-1">{tr.driveAccumulatesBtn}</Button>
+            <Button onClick={() => setValidation(null)} className="flex-1">{tr.driveCheckBtn}</Button>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
 
-function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, minHCP, onChange, onSetDriveWinner, onSetOyesClosest }) {
+function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyCard, proposal, myPendingProposal, minHCP, onChange, onSetDriveWinner, onSetOyesClosest, onPropose, onAcceptProposal, onRejectProposal }) {
   const { tr } = useLanguage()
+  const canEdit = isCreator || isMyCard
   const strokes = strokesOnHole(player.handicap - minHCP, hole.si)
   const gross = score.gross
   const net = gross != null ? gross - strokes : null
 
   const diff = gross != null ? gross - hole.par : null
-  const scoreColor = diff == null ? 'text-white' : diff < -1 ? 'text-yellow-400' : diff === -1 ? 'text-red-400' : diff === 0 ? 'text-blue-400' : 'text-gray-400'
+  const scoreColor = diff == null ? 'text-white' : diff <= -2 ? 'text-yellow-400' : diff === -1 ? 'text-green-400' : diff === 0 ? 'text-blue-400' : 'text-gray-300'
   const scoreLabel = diff == null ? '—' : diff === -3 ? tr.albatross.replace('🐦 ', '') : diff === -2 ? 'Eagle' : diff === -1 ? 'Birdie' : diff === 0 ? 'Par' : `+${diff}`
 
   const units = gross != null ? detectUnits(gross, hole.par, score.inBunker, score.chipIn) : []
@@ -620,6 +665,20 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, minHC
 
   return (
     <div className="bg-surface border border-border rounded-xl p-4">
+      {/* Creator sees pending proposal from this player */}
+      {proposal && (
+        <div className="bg-yellow-900/30 border border-yellow-700/60 rounded-lg px-3 py-2 mb-3 flex items-center justify-between gap-2">
+          <div>
+            <span className="text-yellow-300 text-xs font-semibold block">{tr.scorePropuesto}</span>
+            <span className="text-yellow-100 text-xs">Score: {proposal.gross ?? '—'} · Putts: {proposal.putts ?? '—'}</span>
+          </div>
+          <div className="flex gap-1.5 shrink-0">
+            <button onClick={onAcceptProposal} className="text-green-400 text-xs border border-green-700 rounded-lg px-2.5 py-1 font-semibold active:bg-green-900/30">{tr.aceptar}</button>
+            <button onClick={onRejectProposal} className="text-red-400 text-xs border border-red-700 rounded-lg px-2.5 py-1 font-semibold active:bg-red-900/30">{tr.rechazar}</button>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-3">
         <div>
           <p className="text-white font-bold text-base">{player.name}</p>
@@ -635,7 +694,7 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, minHC
         </div>
       </div>
 
-      {isCreator ? (
+      {canEdit ? (
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <span className="text-gray-400 text-sm w-14">{tr.score}</span>
@@ -665,25 +724,27 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, minHC
             </div>
           )}
 
-          <div className="flex flex-wrap gap-2 mt-1">
-            {(hole.par === 4 || hole.par === 5) && bets.drives?.enabled && (
-              <Chip active={score.driveWinner} onClick={onSetDriveWinner} label={tr.drive} />
-            )}
-            {hole.par === 3 && bets.oyes?.enabled && (
-              <>
-                <Chip active={score.onGreenFirstShot} onClick={() => onChange('onGreenFirstShot', !score.onGreenFirstShot)} label={tr.onGreenFirstShot} />
-                {score.onGreenFirstShot && (
-                  <Chip active={score.oyesClosest} onClick={onSetOyesClosest} label={tr.closest} />
-                )}
-              </>
-            )}
-            {bets.units?.enabled && (
-              <>
-                <Chip active={score.inBunker} onClick={() => onChange('inBunker', !score.inBunker)} label={tr.bunker} />
-                <Chip active={score.chipIn} onClick={() => onChange('chipIn', !score.chipIn)} label={tr.holeOut} />
-              </>
-            )}
-          </div>
+          {isCreator && (
+            <div className="flex flex-wrap gap-2 mt-1">
+              {(hole.par === 4 || hole.par === 5) && bets.drives?.enabled && (
+                <Chip active={score.driveWinner} onClick={onSetDriveWinner} label={tr.drive} />
+              )}
+              {hole.par === 3 && bets.oyes?.enabled && (
+                <>
+                  <Chip active={score.onGreenFirstShot} onClick={() => onChange('onGreenFirstShot', !score.onGreenFirstShot)} label={tr.onGreenFirstShot} />
+                  {score.onGreenFirstShot && (
+                    <Chip active={score.oyesClosest} onClick={onSetOyesClosest} label={tr.closest} />
+                  )}
+                </>
+              )}
+              {bets.units?.enabled && (
+                <>
+                  <Chip active={score.inBunker} onClick={() => onChange('inBunker', !score.inBunker)} label={tr.bunker} />
+                  <Chip active={score.chipIn} onClick={() => onChange('chipIn', !score.chipIn)} label={tr.holeOut} />
+                </>
+              )}
+            </div>
+          )}
 
           {units.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-0.5">
@@ -692,12 +753,27 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, minHC
               ))}
             </div>
           )}
+
+          {isMyCard && (
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={onPropose}
+                className="flex-1 py-2 rounded-xl border border-gold/50 text-gold text-sm font-semibold active:bg-gold/10"
+              >
+                {tr.proposarScore}
+              </button>
+              {myPendingProposal && (
+                <span className="text-yellow-400 text-xs">{tr.esperandoValidacion}</span>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex gap-4 text-sm text-gray-400">
-          {score.putts != null && <span>⛳ {score.putts} putts</span>}
+          {score.gross != null && <span className={scoreColor}>{score.gross} ({scoreLabel})</span>}
+          {score.putts != null && <span>⛳ {score.putts}p</span>}
           {score.driveWinner && <span>{tr.drive}</span>}
-          {score.onGreenFirstShot && <span>🟢 Green</span>}
+          {score.onGreenFirstShot && <span>🟢</span>}
           {units.map(u => <span key={u}>{unitEmoji(u, tr)}</span>)}
         </div>
       )}

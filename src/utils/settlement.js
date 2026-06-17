@@ -1,6 +1,13 @@
 import { strokesOnHole, getMinHCP } from './handicap'
 import { detectUnits, UNIT_DEFAULTS, calcMedals, calcPutts } from './gameLogic'
 
+function holesComplete(holesMap, playerIds, predicate) {
+  const relevant = Object.values(holesMap || {}).filter(predicate)
+  return relevant.length > 0 && relevant.every(h =>
+    playerIds.every(id => h.scores?.[id]?.gross != null)
+  )
+}
+
 export function computeSettlement(round) {
   const { players, holes: holesMap, bets, roundType } = round
   const playerIds = Object.keys(players)
@@ -57,14 +64,18 @@ export function computeSettlement(round) {
     }
   }
 
-  // ── MEDALS ─────────────────────────────────────────────────────────────────
+  // ── MEDALS — solo se calculan cuando los 9/18 hoyos están completos ─────────
   if (bets?.medals?.enabled) {
+    const frontDone = holesComplete(holesMap, playerIds, h => h.n <= 9)
+    const backDone  = holesComplete(holesMap, playerIds, h => h.n >= 10)
+
     const holesWithScores = holes.map(h => ({
       ...h,
       scores: holesMap[h.n]?.scores || holesMap[String(h.n)]?.scores || {},
     }))
     const medalResults = calcMedals(players, holesWithScores, roundType || '18')
 
+    const completeness = { front: frontDone, back: backDone, total: frontDone && backDone }
     const medalValues = {
       front: bets.medals.frontValue || 0,
       back:  bets.medals.backValue  || 0,
@@ -73,6 +84,7 @@ export function computeSettlement(round) {
     const medalNames = { front: 'Medal Front 9', back: 'Medal Back 9', total: 'Medal Total' }
 
     for (const [cat, result] of Object.entries(medalResults)) {
+      if (!completeness[cat]) continue
       const val = medalValues[cat]
       if (!val) continue
       const winners = result.winners
@@ -93,21 +105,24 @@ export function computeSettlement(round) {
     }
   }
 
-  // ── PUTTS — solo el jugador con MÁS putts paga (al de menos putts)
+  // ── PUTTS — solo cuando todos los hoyos de la ronda están completos ─────────
   if (bets?.putts?.enabled) {
-    const puttVal = bets.putts.valuePerPutt || 0
-    const holesWithScores = holes.map(h => ({
-      ...h,
-      scores: holesMap[h.n]?.scores || holesMap[String(h.n)]?.scores || {},
-    }))
-    const { totalPutts, minPlayers, maxPlayers, min, max } = calcPutts(players, holesWithScores)
+    const allDone = holesComplete(holesMap, playerIds, () => true)
+    if (allDone) {
+      const puttVal = bets.putts.valuePerPutt || 0
+      const holesWithScores = holes.map(h => ({
+        ...h,
+        scores: holesMap[h.n]?.scores || holesMap[String(h.n)]?.scores || {},
+      }))
+      const { totalPutts, minPlayers, maxPlayers, min, max } = calcPutts(players, holesWithScores)
 
-    if (max > min && maxPlayers.length > 0 && minPlayers.length > 0) {
-      for (const id of maxPlayers) {
-        const excess = (totalPutts[id] || 0) - (min || 0)
-        if (excess > 0) {
-          const amount = excess * puttVal
-          pay([id], minPlayers, amount, `Putts — ${players[id]?.name} (${totalPutts[id]} putts)`)
+      if (max > min && maxPlayers.length > 0 && minPlayers.length > 0) {
+        for (const id of maxPlayers) {
+          const excess = (totalPutts[id] || 0) - (min || 0)
+          if (excess > 0) {
+            const amount = excess * puttVal
+            pay([id], minPlayers, amount, `Putts — ${players[id]?.name} (${totalPutts[id]} putts)`)
+          }
         }
       }
     }

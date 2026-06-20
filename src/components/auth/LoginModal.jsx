@@ -26,6 +26,16 @@ export default function LoginModal({ onClose }) {
     setError('')
     setLoading(true)
     try {
+      // Network diagnostic: raw fetch to identitytoolkit
+      const netTest = await fetch(
+        'https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=test',
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}', referrerPolicy: 'no-referrer' }
+      ).then(r => r.json()).catch(e => ({ fetchError: e.message }))
+      console.log('[Net Test]', netTest)
+      // Auth state diagnostic
+      const authAny = auth
+      console.log('[Auth State] emulatorConfig:', authAny?._delegate?.emulatorConfig ?? authAny?.emulatorConfig, 'config:', authAny?._delegate?.config ?? authAny?.config)
+
       if (tab === 'register') {
         const { user } = await createUserWithEmailAndPassword(auth, email, password)
         await updateProfile(user, { displayName: name })

@@ -43,14 +43,11 @@ export default function LoginModal({ onClose }) {
 
   // Llamado sincrónicamente desde onClick para que Safari no bloquee el popup
   function handleGoogle() {
+    if (!auth) { setError('Firebase no está configurado'); return }
     setError('')
     signInWithPopup(auth, googleProvider)
       .then(() => onClose())
-      .catch(err => {
-        if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
-          setError(errMsg(err.code))
-        }
-      })
+      .catch(err => setError(errMsg(err.code)))
   }
 
   return (
@@ -140,10 +137,14 @@ function errMsg(code) {
     'auth/user-not-found':        'No existe cuenta con ese email',
     'auth/weak-password':         'Mínimo 6 caracteres',
     'auth/invalid-email':         'Email inválido',
-    'auth/popup-blocked':         'El browser bloqueó la ventana — usa email',
-    'auth/network-request-failed':'Sin conexión a internet',
+    'auth/popup-blocked':               'El browser bloqueó la ventana — usa email',
+    'auth/popup-closed-by-user':        'Cerraste la ventana de Google',
+    'auth/cancelled-popup-request':     'La ventana fue cancelada',
+    'auth/operation-not-allowed':       'Google no está habilitado en Firebase',
+    'auth/unauthorized-domain':         'Dominio no autorizado en Firebase',
+    'auth/network-request-failed':      'Sin conexión a internet',
   }
-  return map[code] || `Error al iniciar sesión (${code})`
+  return map[code] || `Error (${code})`
 }
 
 function GoogleIcon() {

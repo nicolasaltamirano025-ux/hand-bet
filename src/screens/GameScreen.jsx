@@ -307,12 +307,23 @@ export default function GameScreen() {
       }
     }
 
-    // Filter existing events for this hole (makes re-save idempotent)
-    const prevManoEvents   = (round.manoEvents   || []).filter(e => e.holeNum !== holeNum)
-    const prevOyesEvents   = (round.oyesEvents   || []).filter(e => e.holeNum !== holeNum)
-    const prevDriveEvents  = (round.driveEvents  || []).filter(e => e.holeNum !== holeNum)
-    const prevUnitsEvents  = (round.unitsEvents  || []).filter(e => e.holeNum !== holeNum)
-    const prevPinkiesEvents = (round.pinkiesEvents || []).filter(e => e.holeNum !== holeNum)
+    // Re-save idempotency: rebuild state ONLY from holes played before the current one.
+    // Including future holes in the rebuild inflates accumulated counts because their
+    // stale newTotal values get processed by rebuildManoState/rebuildOyesState/etc.
+    const currentPO  = currentHole.playOrder ?? currentHole.n
+    const beforeNums = new Set(holes.filter(h => (h.playOrder ?? h.n) < currentPO).map(h => h.n))
+    const afterNums  = new Set(holes.filter(h => (h.playOrder ?? h.n) > currentPO).map(h => h.n))
+
+    const prevManoEvents    = (round.manoEvents    || []).filter(e => beforeNums.has(e.holeNum))
+    const prevOyesEvents    = (round.oyesEvents    || []).filter(e => beforeNums.has(e.holeNum))
+    const prevDriveEvents   = (round.driveEvents   || []).filter(e => beforeNums.has(e.holeNum))
+    const prevUnitsEvents   = (round.unitsEvents   || []).filter(e => beforeNums.has(e.holeNum))
+    const prevPinkiesEvents = (round.pinkiesEvents || []).filter(e => beforeNums.has(e.holeNum))
+    const manoEventsAfter    = (round.manoEvents    || []).filter(e => afterNums.has(e.holeNum))
+    const oyesEventsAfter    = (round.oyesEvents    || []).filter(e => afterNums.has(e.holeNum))
+    const driveEventsAfter   = (round.driveEvents   || []).filter(e => afterNums.has(e.holeNum))
+    const unitsEventsAfter   = (round.unitsEvents   || []).filter(e => afterNums.has(e.holeNum))
+    const pinkiesEventsAfter = (round.pinkiesEvents || []).filter(e => afterNums.has(e.holeNum))
 
     // ── Mano ───────────────────────────────────────────────────────────────
     if (bets.mano?.enabled) {
@@ -370,7 +381,7 @@ export default function GameScreen() {
         }
 
         updates['manoState'] = mState
-        updates['manoEvents'] = newManoEvents
+        updates['manoEvents'] = [...newManoEvents, ...manoEventsAfter]
       }
     }
 
@@ -410,7 +421,7 @@ export default function GameScreen() {
       }
 
       updates['oyesState'] = oyesSt
-      updates['oyesEvents'] = newOyesEvents
+      updates['oyesEvents'] = [...newOyesEvents, ...oyesEventsAfter]
     }
 
     // ── Drives ─────────────────────────────────────────────────────────────
@@ -430,7 +441,7 @@ export default function GameScreen() {
         updates['drivesAccumulated'] = 0
         celebrationsToFire.push({ type: 'drive', name: players[driveWinner]?.name })
       }
-      updates['driveEvents'] = newDriveEvents
+      updates['driveEvents'] = [...newDriveEvents, ...driveEventsAfter]
     }
 
     // ── Units ──────────────────────────────────────────────────────────────
@@ -442,7 +453,7 @@ export default function GameScreen() {
         const achieved = detectUnits(s.gross, par, s.inBunker, s.chipIn)
         if (achieved.length > 0) newUnitsEvents.push({ holeNum, playerId: id, units: achieved })
       }
-      updates['unitsEvents'] = newUnitsEvents
+      updates['unitsEvents'] = [...newUnitsEvents, ...unitsEventsAfter]
     }
 
     // ── Pinkies ────────────────────────────────────────────────────────────────
@@ -456,7 +467,7 @@ export default function GameScreen() {
           celebrationsToFire.push({ type: 'pinky', name: players[id]?.name })
         }
       }
-      updates['pinkiesEvents'] = newPinkiesEvents
+      updates['pinkiesEvents'] = [...newPinkiesEvents, ...pinkiesEventsAfter]
     }
 
     if (celebrationsToFire.length > 0 && !celebratedHolesRef.current.has(holeNum)) {

@@ -4,7 +4,7 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
   GoogleAuthProvider,
-  signInWithPopup,
+  signInWithRedirect,
 } from 'firebase/auth'
 import { auth } from '../../firebase/config'
 import { saveUserProfile } from '../../firebase/userService'
@@ -42,12 +42,10 @@ export default function LoginModal({ onClose }) {
     setLoading(false)
   }
 
-  // Llamado sincrónicamente desde onClick para que Safari no bloquee el popup
   function handleGoogle() {
     if (!auth) { setError('Firebase no está configurado'); return }
     setError('')
-    signInWithPopup(auth, googleProvider)
-      .then(() => onClose())
+    signInWithRedirect(auth, googleProvider)
       .catch(err => setError(`${err.code}: ${err.message}`))
   }
 

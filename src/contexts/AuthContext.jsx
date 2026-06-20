@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import { onAuthStateChanged } from 'firebase/auth'
+import { onAuthStateChanged, getRedirectResult } from 'firebase/auth'
 import { auth } from '../firebase/config'
 import { getUserProfile, saveUserProfile } from '../firebase/userService'
 
@@ -12,6 +12,10 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (!auth) { setUser(null); return }
+
+    // Handle post-redirect Google sign-in result
+    getRedirectResult(auth).catch(() => {})
+
     return onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser)

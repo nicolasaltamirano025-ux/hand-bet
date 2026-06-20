@@ -4,7 +4,7 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
   GoogleAuthProvider,
-  signInWithRedirect,
+  signInWithPopup,
 } from 'firebase/auth'
 import { auth } from '../../firebase/config'
 import { saveUserProfile } from '../../firebase/userService'
@@ -45,8 +45,9 @@ export default function LoginModal({ onClose }) {
   function handleGoogle() {
     if (!auth) { setError('Firebase no está configurado'); return }
     setError('')
-    signInWithRedirect(auth, googleProvider)
-      .catch(err => setError(`${err.code}: ${err.message}`))
+    signInWithPopup(auth, googleProvider)
+      .then(() => onClose())
+      .catch(err => setError(errMsg(err.code)))
   }
 
   return (

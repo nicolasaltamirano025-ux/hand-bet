@@ -20,6 +20,12 @@ export default defineConfig({
             handler: 'CacheFirst',
             options: { cacheName: 'gstatic-fonts-cache', expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 } },
           },
+          // Firebase — siempre va a la red, nunca al caché
+          { urlPattern: /^https:\/\/identitytoolkit\.googleapis\.com\/.*/i, handler: 'NetworkOnly' },
+          { urlPattern: /^https:\/\/securetoken\.googleapis\.com\/.*/i,     handler: 'NetworkOnly' },
+          { urlPattern: /^https:\/\/.*\.firebaseio\.com\/.*/i,              handler: 'NetworkOnly' },
+          { urlPattern: /^https:\/\/.*\.firebasedatabase\.app\/.*/i,        handler: 'NetworkOnly' },
+          { urlPattern: /^https:\/\/.*\.firebaseapp\.com\/.*/i,             handler: 'NetworkOnly' },
         ],
       },
       manifest: {

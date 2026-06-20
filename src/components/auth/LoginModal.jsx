@@ -48,7 +48,7 @@ export default function LoginModal({ onClose }) {
     setError('')
     signInWithPopup(auth, googleProvider)
       .then(() => onClose())
-      .catch(err => setError(errMsg(err.code)))
+      .catch(err => setError(`${err.code}: ${err.message}`))
   }
 
   return (

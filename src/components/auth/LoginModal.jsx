@@ -124,6 +124,14 @@ export default function LoginModal({ onClose }) {
           <GoogleIcon />
           Continuar con Google
         </button>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full py-3 text-gray-500 text-sm"
+        >
+          Continuar como invitado
+        </button>
       </div>
     </div>
   )

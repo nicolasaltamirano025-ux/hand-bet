@@ -10,6 +10,7 @@ import { auth } from '../../firebase/config'
 import { saveUserProfile } from '../../firebase/userService'
 
 const googleProvider = new GoogleAuthProvider()
+googleProvider.setCustomParameters({ prompt: 'select_account' })
 
 export default function LoginModal({ onClose }) {
   const [tab, setTab]         = useState('login')

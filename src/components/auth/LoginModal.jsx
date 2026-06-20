@@ -37,7 +37,8 @@ export default function LoginModal({ onClose }) {
       }
       onClose()
     } catch (err) {
-      setError(errMsg(err.code))
+      console.error('[Auth Email Error]', err.code, err.message, err)
+      setError(`${err.code}: ${err.message}`)
     }
     setLoading(false)
   }
@@ -47,7 +48,10 @@ export default function LoginModal({ onClose }) {
     setError('')
     signInWithPopup(auth, googleProvider)
       .then(() => onClose())
-      .catch(err => setError(errMsg(err.code)))
+      .catch(err => {
+        console.error('[Auth Google Error]', err.code, err.message, err)
+        setError(`${err.code}: ${err.message}`)
+      })
   }
 
   return (

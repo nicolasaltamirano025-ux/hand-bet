@@ -462,7 +462,7 @@ export default function GameScreen() {
       for (const id of playerIds) {
         const s = pendingScore[id]
         if (!s || s.gross == null) continue
-        if (s.gross >= par + 2) {
+        if (s.gross >= 10) {
           newPinkiesEvents.push({ type: 'pinky', playerId: id, holeNum })
           celebrationsToFire.push({ type: 'pinky', name: players[id]?.name })
         }

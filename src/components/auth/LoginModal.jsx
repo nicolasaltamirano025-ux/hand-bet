@@ -48,8 +48,8 @@ export default function LoginModal({ onClose }) {
       }
       onClose()
     } catch (err) {
-      console.error('[Auth Email Error]', err.code, err.message, err)
-      setError(`${err.code}: ${err.message}`)
+      console.error('[Auth Email Error]', err.code, err.message, 'customData:', JSON.stringify(err.customData), err)
+      setError(`${err.code}: ${JSON.stringify(err.customData)}`)
     }
     setLoading(false)
   }

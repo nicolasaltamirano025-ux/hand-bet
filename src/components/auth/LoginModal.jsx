@@ -26,15 +26,16 @@ export default function LoginModal({ onClose }) {
     setError('')
     setLoading(true)
     try {
-      // Network diagnostic: raw fetch to identitytoolkit
+      // Auth state diagnostic — check the REAL apiKey/authDomain auth is using
+      const authAny = auth
+      const cfg = authAny?._delegate?.config ?? authAny?.config
+      console.log('[Auth State] apiKey:', cfg?.apiKey, 'authDomain:', cfg?.authDomain, 'apiHost:', cfg?.apiHost, 'apiScheme:', cfg?.apiScheme)
+      // Network diagnostic: raw fetch to identitytoolkit using the REAL apiKey
       const netTest = await fetch(
-        'https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=test',
+        `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${cfg?.apiKey}`,
         { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}', referrerPolicy: 'no-referrer' }
       ).then(r => r.json()).catch(e => ({ fetchError: e.message }))
-      console.log('[Net Test]', netTest)
-      // Auth state diagnostic
-      const authAny = auth
-      console.log('[Auth State] emulatorConfig:', authAny?._delegate?.emulatorConfig ?? authAny?.emulatorConfig, 'config:', authAny?._delegate?.config ?? authAny?.config)
+      console.log('[Net Test with real key]', netTest)
 
       if (tab === 'register') {
         const { user } = await createUserWithEmailAndPassword(auth, email, password)

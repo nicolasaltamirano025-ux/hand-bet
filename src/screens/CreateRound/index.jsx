@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createRound } from '../../firebase/roundsService'
+import { recordActiveRound } from '../../firebase/userService'
+import { useAuth } from '../../contexts/AuthContext'
 import { UNIT_DEFAULTS } from '../../utils/gameLogic'
 import Step1Field from './Step1Field'
 import Step2RoundType from './Step2RoundType'
@@ -12,6 +14,7 @@ const TOTAL_STEPS = 5
 
 export default function CreateRound() {
   const nav = useNavigate()
+  const { user } = useAuth()
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
 
@@ -83,6 +86,9 @@ export default function CreateRound() {
     const code = await createRound(roundData)
     localStorage.setItem(`hb_player_${code}`, 'p1')
     localStorage.setItem('hb_last_round', code)
+    if (user) {
+      recordActiveRound(user.uid, code, { field: field.name, roundType })
+    }
     setSaving(false)
     nav(`/round/${code}?new=1`)
   }

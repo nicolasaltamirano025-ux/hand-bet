@@ -26,17 +26,6 @@ export default function LoginModal({ onClose }) {
     setError('')
     setLoading(true)
     try {
-      // Auth state diagnostic — check the REAL apiKey/authDomain auth is using
-      const authAny = auth
-      const cfg = authAny?._delegate?.config ?? authAny?.config
-      console.log('[Auth State] apiKey:', cfg?.apiKey, 'authDomain:', cfg?.authDomain, 'apiHost:', cfg?.apiHost, 'apiScheme:', cfg?.apiScheme)
-      // Network diagnostic: raw fetch to identitytoolkit using the REAL apiKey
-      const netTest = await fetch(
-        `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${cfg?.apiKey}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}', referrerPolicy: 'no-referrer' }
-      ).then(r => r.json()).catch(e => ({ fetchError: e.message }))
-      console.log('[Net Test with real key]', netTest)
-
       if (tab === 'register') {
         const { user } = await createUserWithEmailAndPassword(auth, email, password)
         await updateProfile(user, { displayName: name })
@@ -48,8 +37,7 @@ export default function LoginModal({ onClose }) {
       }
       onClose()
     } catch (err) {
-      console.error('[Auth Email Error]', err.code, err.message, 'customData:', JSON.stringify(err.customData), err)
-      setError(`${err.code}: ${JSON.stringify(err.customData)}`)
+      setError(errMsg(err.code))
     }
     setLoading(false)
   }
@@ -59,10 +47,7 @@ export default function LoginModal({ onClose }) {
     setError('')
     signInWithPopup(auth, googleProvider)
       .then(() => onClose())
-      .catch(err => {
-        console.error('[Auth Google Error]', err.code, err.message, err)
-        setError(`${err.code}: ${err.message}`)
-      })
+      .catch(err => setError(errMsg(err.code)))
   }
 
   return (

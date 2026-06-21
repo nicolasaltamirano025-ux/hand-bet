@@ -1,4 +1,4 @@
-import { ref, set, get, update, onValue, off, push } from 'firebase/database'
+import { ref, set, get, update, onValue, off, push, remove } from 'firebase/database'
 import { db, isConfigured } from './config'
 
 function guard() {
@@ -34,6 +34,11 @@ export function subscribeToRound(code, callback) {
   const r = ref(db, `rounds/${code}`)
   onValue(r, snap => callback(snap.exists() ? snap.val() : null))
   return () => off(r)
+}
+
+export async function deleteRound(code) {
+  guard()
+  await remove(ref(db, `rounds/${code}`))
 }
 
 export async function updateRoundDeep(code, updates) {

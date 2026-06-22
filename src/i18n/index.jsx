@@ -29,7 +29,7 @@ const translations = {
     // GameScreen
     roundCompleted: 'Ronda completada.',
     reference: 'sin ventaja aquí',
-    strokes: (n) => `+${n} ventaja${n === 1 ? '' : 's'} aquí`,
+    strokes: (n, refName) => `+${n} ventaja${n === 1 ? '' : 's'}${refName ? ` vs ${refName}` : ''}`,
     previous: '← Anterior',
     save: '💾 Guardar',
     next: 'Siguiente →',
@@ -178,7 +178,7 @@ const translations = {
     albatrosLabel: 'Albatros',
     holeInOneLabel: 'Hoyo en uno',
     pinkiesLabel: 'Pinkies',
-    pinkiesDesc: 'Doble bogey o peor — pagas una unidad a cada jugador',
+    pinkiesDesc: 'Score de doble dígito (10 o más) — pagas una unidad a cada jugador',
     valuePerPinky: 'Valor por pinky',
 
     // Step5
@@ -220,7 +220,7 @@ const translations = {
     // GameScreen
     roundCompleted: 'Round completed.',
     reference: 'no strokes here',
-    strokes: (n) => `+${n} stroke${n === 1 ? '' : 's'} here`,
+    strokes: (n, refName) => `+${n} stroke${n === 1 ? '' : 's'}${refName ? ` vs ${refName}` : ''}`,
     previous: '← Previous',
     save: '💾 Save',
     next: 'Next →',
@@ -369,7 +369,7 @@ const translations = {
     albatrosLabel: 'Albatross',
     holeInOneLabel: 'Hole in one',
     pinkiesLabel: 'Pinkies',
-    pinkiesDesc: 'Double bogey or worse — pay one unit to each player',
+    pinkiesDesc: 'Double-digit score (10 or more) — pay one unit to each player',
     valuePerPinky: 'Value per pinky',
 
     // Step5

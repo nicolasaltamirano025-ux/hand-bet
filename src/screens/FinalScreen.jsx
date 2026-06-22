@@ -154,11 +154,17 @@ export default function FinalScreen() {
         </div>
       )}
 
-      <div className="fixed bottom-0 left-0 right-0 bg-bg border-t border-border p-4" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
+      <div className="fixed bottom-0 left-0 right-0 bg-bg border-t border-border p-4 flex gap-2" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
+        <button
+          onClick={() => nav('/')}
+          className="flex-shrink-0 px-5 rounded-xl border border-border text-white font-semibold active:bg-surface"
+        >
+          🏠
+        </button>
         <button
           onClick={share}
           disabled={sharing}
-          className="w-full bg-gold text-bg rounded-xl py-4 font-bold text-base active:scale-95 transition-transform disabled:opacity-60 flex items-center justify-center gap-2"
+          className="flex-1 bg-gold text-bg rounded-xl py-4 font-bold text-base active:scale-95 transition-transform disabled:opacity-60 flex items-center justify-center gap-2"
         >
           {sharing ? (
             <><span className="animate-spin">⏳</span> {tr.generatingImage}</>

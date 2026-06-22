@@ -115,10 +115,10 @@ export default function ScorecardScreen() {
                       : diff <= -2 ? 'text-yellow-400'
                       : diff === -1 ? 'text-green-400'
                       : diff === 0 ? 'text-blue-400'
-                      : 'text-white'
+                      : 'text-red-400'
                     return (
                       <td key={h.n} className="px-1 py-2 text-center">
-                        <div className={`inline-flex flex-col items-center justify-center w-7 h-7 rounded-full font-bold text-xs ${color} ${wonHole ? 'ring-1 ring-gold' : ''}`}>
+                        <div className={`inline-flex flex-col items-center justify-center w-7 h-7 rounded-full font-bold text-xs ${color} ${wonHole ? 'ring-2 ring-gold' : ''}`}>
                           {g ?? '·'}
                           {hasUnit && <span className="text-[8px] text-gold leading-none">★</span>}
                         </div>

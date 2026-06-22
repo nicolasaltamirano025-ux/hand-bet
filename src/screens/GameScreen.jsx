@@ -104,6 +104,8 @@ export default function GameScreen() {
   const playerIds = Object.keys(players)
   const bets = round?.bets || {}
   const minHCP = getMinHCP(players)
+  const referencePlayerId = playerIds.find(id => players[id].handicap === minHCP)
+  const referenceName = referencePlayerId ? players[referencePlayerId].name : null
 
   // On first load, jump to the last hole that has saved scores
   useEffect(() => {
@@ -243,7 +245,9 @@ export default function GameScreen() {
       const s = pendingScore[id] || {}
       if (s.gross == null) continue
       const { gross, putts = 0 } = s
-      if (putts > gross) {
+      if (s.chipIn && putts > 0) {
+        impossible.push(`${players[id]?.name}: marcado Hole-out pero tiene ${putts} putt${putts === 1 ? '' : 's'} (Hole-out implica 0 putts)`)
+      } else if (putts > gross) {
         impossible.push(`${players[id]?.name}: ${putts} putts con score ${gross} (más putts que golpes totales)`)
       } else if (gross - putts < 1 && putts > 0 && !s.chipIn) {
         impossible.push(`${players[id]?.name}: sin golpes de approach (putts=${putts}, score=${gross})`)
@@ -392,7 +396,7 @@ export default function GameScreen() {
 
       const eligible = playerIds.filter(id => {
         const s = pendingScore[id]
-        return s?.gross === par && s?.onGreenFirstShot === true
+        return s?.gross != null && s.gross <= par && s?.onGreenFirstShot === true
       })
       const qualifiedClosest = playerIds.filter(id => pendingScore[id]?.oyesClosest && eligible.includes(id))
 
@@ -539,6 +543,7 @@ export default function GameScreen() {
               proposal={isCreator ? (holeProposals[id] || null) : null}
               myPendingProposal={!isCreator && id === localPlayerId ? (holeProposals[id] || null) : null}
               minHCP={minHCP}
+              referenceName={referenceName}
               onChange={(field, val) => updateScore(id, field, val)}
               onSetDriveWinner={() => setDriveWinner(id)}
               onSetOyesClosest={() => setOyesClosest(id)}
@@ -674,7 +679,7 @@ export default function GameScreen() {
   )
 }
 
-function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyCard, proposal, myPendingProposal, minHCP, onChange, onSetDriveWinner, onSetOyesClosest, onPropose, onAcceptProposal, onRejectProposal }) {
+function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyCard, proposal, myPendingProposal, minHCP, referenceName, onChange, onSetDriveWinner, onSetOyesClosest, onPropose, onAcceptProposal, onRejectProposal }) {
   const { tr } = useLanguage()
   const canEdit = isCreator || isMyCard
   const strokes = strokesOnHole(player.handicap - minHCP, hole.si)
@@ -682,7 +687,7 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
   const net = gross != null ? gross - strokes : null
 
   const diff = gross != null ? gross - hole.par : null
-  const scoreColor = diff == null ? 'text-white' : diff <= -2 ? 'text-yellow-400' : diff === -1 ? 'text-green-400' : diff === 0 ? 'text-blue-400' : 'text-gray-300'
+  const scoreColor = diff == null ? 'text-white' : diff <= -2 ? 'text-yellow-400' : diff === -1 ? 'text-green-400' : diff === 0 ? 'text-blue-400' : 'text-red-400'
   const scoreLabel = diff == null ? '—' : diff === -3 ? tr.albatross.replace('🐦 ', '') : diff === -2 ? 'Eagle' : diff === -1 ? 'Birdie' : diff === 0 ? 'Par' : `+${diff}`
 
   const units = gross != null ? detectUnits(gross, hole.par, score.inBunker, score.chipIn) : []
@@ -713,7 +718,7 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
       <div className="flex items-center justify-between mb-3">
         <div>
           <p className="text-white font-bold text-base">{player.name}</p>
-          <p className="text-gray-400 text-xs">HCP {player.handicap} · {strokes > 0 ? tr.strokes(strokes) : tr.reference}</p>
+          <p className="text-gray-400 text-xs">HCP {player.handicap} · {strokes > 0 ? tr.strokes(strokes, referenceName) : tr.reference}</p>
         </div>
         <div className="text-right">
           {gross != null && (
@@ -777,11 +782,14 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
             </div>
           )}
 
-          {units.length > 0 && (
+          {(units.length > 0 || (bets.pinkies?.enabled && gross >= 10)) && (
             <div className="flex flex-wrap gap-1 mt-0.5">
               {units.map(u => (
                 <span key={u} className="bg-gold/20 text-gold text-xs px-2 py-0.5 rounded-full font-semibold">{unitEmoji(u, tr)}</span>
               ))}
+              {bets.pinkies?.enabled && gross >= 10 && (
+                <span className="bg-red-900/40 text-red-300 text-xs px-2 py-0.5 rounded-full font-semibold">🤙 Pinky</span>
+              )}
             </div>
           )}
 

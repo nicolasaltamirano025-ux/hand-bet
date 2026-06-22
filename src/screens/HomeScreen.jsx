@@ -101,6 +101,10 @@ export default function HomeScreen() {
         </Button>
       </div>
 
+      <p className="absolute bottom-2 text-gray-600 text-[10px]" style={{ marginBottom: 'env(safe-area-inset-bottom)' }}>
+        v{__APP_VERSION__}
+      </p>
+
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
 
       <Modal open={confirmDelete} onClose={() => setConfirmDelete(false)} title={tr.deleteRoundConfirmTitle}>

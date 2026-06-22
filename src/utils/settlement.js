@@ -118,11 +118,8 @@ export function computeSettlement(round) {
 
       if (max > min && maxPlayers.length > 0 && minPlayers.length > 0) {
         for (const id of maxPlayers) {
-          const excess = (totalPutts[id] || 0) - (min || 0)
-          if (excess > 0) {
-            const amount = excess * puttVal
-            pay([id], minPlayers, amount, `Putts — ${players[id]?.name} (${totalPutts[id]} putts)`)
-          }
+          const amount = (totalPutts[id] || 0) * puttVal
+          pay([id], minPlayers, amount, `Putts — ${players[id]?.name} (${totalPutts[id]} putts)`)
         }
       }
     }

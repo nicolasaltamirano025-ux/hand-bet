@@ -76,6 +76,7 @@ export default function ScorecardScreen() {
         <button onClick={() => nav(-1)} className="text-gray-400 text-sm">{tr.back}</button>
         <h2 className="text-white font-bold text-lg flex-1 text-center">Scorecard</h2>
         <span className="text-gold font-bold text-lg">{code}</span>
+        <button onClick={() => nav('/')} className="text-xs text-gray-400 border border-border rounded-lg px-2.5 py-1.5">🏠</button>
       </div>
 
       <div className="overflow-x-auto flex-1">

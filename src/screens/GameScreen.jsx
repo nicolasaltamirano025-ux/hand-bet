@@ -506,6 +506,7 @@ export default function GameScreen() {
           <div className="flex items-center gap-2">
             {manoState.accumulated > 0 && <ManoFlameBadge accumulated={manoState.accumulated} />}
             <div className="flex gap-1">
+              <button onClick={() => nav('/')} className="text-xs text-gray-400 border border-border rounded-lg px-2.5 py-1.5">🏠</button>
               <button onClick={() => nav(`/round/${code}/scorecard`)} className="text-xs text-gray-400 border border-border rounded-lg px-2.5 py-1.5">📋</button>
               <button onClick={() => nav(`/round/${code}/bets`)} className="text-xs text-gray-400 border border-border rounded-lg px-2.5 py-1.5">💰</button>
             </div>

@@ -125,14 +125,16 @@ export function computeSettlement(round) {
     }
   }
 
-  // ── PINKIES ────────────────────────────────────────────────────────────────
+  // ── CASTIGOS (Pinky, 4-Putts, ...) ──────────────────────────────────────────
   if (bets?.pinkies?.enabled) {
     const pinkVal = bets.pinkies.value || 0
     const pinkiesEvents = round.pinkiesEvents || []
+    const castigoLabel = { pinky: 'Pinky', fourPutt: '4 Putts' }
     for (const ev of pinkiesEvents) {
       if (ev.type === 'pinky') {
         const others = playerIds.filter(id => id !== ev.playerId)
-        pay([ev.playerId], others, pinkVal * others.length, `Pinky hoyo ${ev.holeNum} — ${players[ev.playerId]?.name}`, ev.holeNum)
+        const label = castigoLabel[ev.subtype] || 'Pinky'
+        pay([ev.playerId], others, pinkVal * others.length, `${label} hoyo ${ev.holeNum} — ${players[ev.playerId]?.name}`, ev.holeNum)
       }
     }
   }

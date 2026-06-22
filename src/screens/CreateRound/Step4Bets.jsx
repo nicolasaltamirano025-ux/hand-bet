@@ -96,7 +96,7 @@ export default function Step4Bets({ bets, setBets, roundType, next, back }) {
         )}
       </Section>
 
-      <Section title={`🤙 ${tr.pinkiesLabel}`}>
+      <Section title={`⚠️ ${tr.pinkiesLabel}`}>
         <Toggle checked={bets.pinkies.enabled} onChange={() => toggle('pinkies')} label={tr.pinkiesLabel} description={tr.pinkiesDesc} />
         {bets.pinkies.enabled && (
           <NumberInput label={tr.valuePerPinky} value={bets.pinkies.value} onChange={v => setVal('pinkies', 'value', v)} />

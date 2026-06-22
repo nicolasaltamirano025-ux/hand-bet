@@ -178,8 +178,8 @@ const translations = {
     seeReview: 'Ver Resumen →',
     albatrosLabel: 'Albatros',
     holeInOneLabel: 'Hoyo en uno',
-    pinkiesLabel: 'Pinkies',
-    pinkiesDesc: 'Score de doble dígito (10 o más) — pagas una unidad a cada jugador',
+    pinkiesLabel: 'Castigos',
+    pinkiesDesc: 'Pinky (10+) y 4-Putts — cada castigo cometido paga una unidad a cada jugador',
     valuePerPinky: 'Valor por pinky',
 
     // Step5
@@ -370,8 +370,8 @@ const translations = {
     seeReview: 'See Summary →',
     albatrosLabel: 'Albatross',
     holeInOneLabel: 'Hole in one',
-    pinkiesLabel: 'Pinkies',
-    pinkiesDesc: 'Double-digit score (10 or more) — pay one unit to each player',
+    pinkiesLabel: 'Penalties',
+    pinkiesDesc: 'Pinky (10+) and 4-Putts — each penalty committed pays one unit to every player',
     valuePerPinky: 'Value per pinky',
 
     // Step5

@@ -460,14 +460,18 @@ export default function GameScreen() {
       updates['unitsEvents'] = [...newUnitsEvents, ...unitsEventsAfter]
     }
 
-    // ── Pinkies ────────────────────────────────────────────────────────────────
+    // ── Castigos (Pinky, 4-Putts, ...) ──────────────────────────────────────────
     if (bets.pinkies?.enabled) {
       const newPinkiesEvents = [...prevPinkiesEvents]
       for (const id of playerIds) {
         const s = pendingScore[id]
         if (!s || s.gross == null) continue
-        if (s.gross >= 10) {
-          newPinkiesEvents.push({ type: 'pinky', playerId: id, holeNum })
+        if (s.pinky) {
+          newPinkiesEvents.push({ type: 'pinky', subtype: 'pinky', playerId: id, holeNum })
+          celebrationsToFire.push({ type: 'pinky', name: players[id]?.name })
+        }
+        if (s.fourPutt) {
+          newPinkiesEvents.push({ type: 'pinky', subtype: 'fourPutt', playerId: id, holeNum })
           celebrationsToFire.push({ type: 'pinky', name: players[id]?.name })
         }
       }
@@ -680,8 +684,14 @@ export default function GameScreen() {
   )
 }
 
+const CASTIGOS = [
+  { key: 'pinky',    emoji: '🤙', label: 'Pinky',    desc: 'Score de doble dígito (10 o más) en este hoyo' },
+  { key: 'fourPutt', emoji: '🐌', label: '4 Putts',  desc: '4 o más putts en este hoyo' },
+]
+
 function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyCard, proposal, myPendingProposal, minHCP, referenceName, onChange, onSetDriveWinner, onSetOyesClosest, onPropose, onAcceptProposal, onRejectProposal }) {
   const { tr } = useLanguage()
+  const [showCastigos, setShowCastigos] = useState(false)
   const canEdit = isCreator || isMyCard
   const strokes = strokesOnHole(player.handicap - minHCP, hole.si)
   const gross = score.gross
@@ -692,6 +702,7 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
   const scoreLabel = diff == null ? '—' : diff === -3 ? tr.albatross.replace('🐦 ', '') : diff === -2 ? 'Eagle' : diff === -1 ? 'Birdie' : diff === 0 ? 'Par' : `+${diff}`
 
   const units = gross != null ? detectUnits(gross, hole.par, score.inBunker, score.chipIn) : []
+  const activeCastigos = CASTIGOS.filter(c => score[c.key])
 
   useEffect(() => {
     if (!bets.putts?.enabled || hole.par !== 3 || !score.onGreenFirstShot) return
@@ -699,6 +710,17 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
     const auto = gross - 1
     if ((score.putts ?? 0) !== auto) onChange('putts', auto)
   }, [score.onGreenFirstShot, gross, hole.par])
+
+  // Auto-suggest castigos based on score, without overriding a manual uncheck
+  useEffect(() => {
+    if (!bets.pinkies?.enabled) return
+    if (gross != null && gross >= 10 && !score.pinky) onChange('pinky', true)
+  }, [bets.pinkies?.enabled, gross])
+
+  useEffect(() => {
+    if (!bets.pinkies?.enabled) return
+    if ((score.putts ?? 0) >= 4 && !score.fourPutt) onChange('fourPutt', true)
+  }, [bets.pinkies?.enabled, score.putts])
 
   return (
     <div className="bg-surface border border-border rounded-xl p-4">
@@ -781,18 +803,39 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
                 </>
               )}
               {bets.pinkies?.enabled && (
-                <Chip active={gross >= 10} onClick={() => {}} label="🤙 Pinky" />
+                <Chip active={activeCastigos.length > 0} onClick={() => setShowCastigos(true)} label="⚠️ Castigo" />
               )}
             </div>
           )}
 
-          {units.length > 0 && (
+          {(units.length > 0 || activeCastigos.length > 0) && (
             <div className="flex flex-wrap gap-1 mt-0.5">
               {units.map(u => (
                 <span key={u} className="bg-gold/20 text-gold text-xs px-2 py-0.5 rounded-full font-semibold">{unitEmoji(u, tr)}</span>
               ))}
+              {activeCastigos.map(c => (
+                <span key={c.key} className="bg-red-900/40 text-red-300 text-xs px-2 py-0.5 rounded-full font-semibold">{c.emoji} {c.label}</span>
+              ))}
             </div>
           )}
+
+          <Modal open={showCastigos} onClose={() => setShowCastigos(false)} title="Castigo">
+            <div className="flex flex-col gap-2">
+              {CASTIGOS.map(c => (
+                <button
+                  key={c.key}
+                  onClick={() => onChange(c.key, !score[c.key])}
+                  className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${score[c.key] ? 'border-gold bg-gold/10' : 'border-border'}`}
+                >
+                  <div>
+                    <p className={`font-semibold text-sm ${score[c.key] ? 'text-gold' : 'text-white'}`}>{c.emoji} {c.label}</p>
+                    <p className="text-gray-400 text-xs mt-0.5">{c.desc}</p>
+                  </div>
+                  <span className={`text-xl ${score[c.key] ? 'text-gold' : 'text-gray-600'}`}>{score[c.key] ? '✓' : ''}</span>
+                </button>
+              ))}
+            </div>
+          </Modal>
 
           {isMyCard && (
             <div className="flex items-center gap-2 pt-1">
@@ -815,6 +858,7 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
           {score.driveWinner && <span>{tr.drive}</span>}
           {score.onGreenFirstShot && <span>🟢</span>}
           {units.map(u => <span key={u}>{unitEmoji(u, tr)}</span>)}
+          {activeCastigos.map(c => <span key={c.key}>{c.emoji} {c.label}</span>)}
         </div>
       )}
     </div>

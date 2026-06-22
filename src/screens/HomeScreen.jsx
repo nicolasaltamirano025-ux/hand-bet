@@ -7,6 +7,7 @@ import { useLanguage } from '../i18n'
 import { useAuth } from '../contexts/AuthContext'
 import LoginModal from '../components/auth/LoginModal'
 import { AVATAR_ICONS } from '../components/profile/avatarIcons'
+import { APP_VERSION } from '../version'
 
 export default function HomeScreen() {
   const nav = useNavigate()
@@ -102,7 +103,7 @@ export default function HomeScreen() {
       </div>
 
       <p className="absolute bottom-2 text-gray-600 text-[10px]" style={{ marginBottom: 'env(safe-area-inset-bottom)' }}>
-        v{__APP_VERSION__}
+        V{APP_VERSION}
       </p>
 
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}

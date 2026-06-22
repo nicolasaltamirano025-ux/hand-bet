@@ -1,7 +1,6 @@
 import { initializeApp, getApps } from 'firebase/app'
 import { getDatabase } from 'firebase/database'
 import { getAuth } from 'firebase/auth'
-import { getStorage } from 'firebase/storage'
 
 const firebaseConfig = {
   apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
@@ -17,16 +16,14 @@ export const isConfigured = Boolean(firebaseConfig.databaseURL && firebaseConfig
 
 let db = null
 let auth = null
-let storage = null
 try {
   const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig)
   if (isConfigured) {
     db = getDatabase(app)
     auth = getAuth(app)
-    storage = getStorage(app)
   }
 } catch (e) {
   console.warn('Firebase not configured:', e.message)
 }
 
-export { db, auth, storage }
+export { db, auth }

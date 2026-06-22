@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { signOutUser } from '../firebase/auth'
-import { saveUserProfile, subscribeUserRounds, removeUserRound, uploadProfilePhoto } from '../firebase/userService'
+import { saveUserProfile, subscribeUserRounds, removeUserRound } from '../firebase/userService'
 import { deleteRound } from '../firebase/roundsService'
 import Modal from '../components/ui/Modal'
 import AvatarPicker from '../components/profile/AvatarPicker'
@@ -260,12 +260,6 @@ export default function ProfileScreen() {
           onSelect={async (iconId) => {
             await saveUserProfile(user.uid, { avatarIcon: iconId })
             setProfile(p => ({ ...p, avatarIcon: iconId }))
-            setShowAvatarPicker(false)
-          }}
-          onUploadPhoto={async (file) => {
-            const photoURL = await uploadProfilePhoto(user.uid, file)
-            await saveUserProfile(user.uid, { photoURL, avatarIcon: null })
-            setProfile(p => ({ ...p, photoURL, avatarIcon: null }))
             setShowAvatarPicker(false)
           }}
           onClose={() => setShowAvatarPicker(false)}

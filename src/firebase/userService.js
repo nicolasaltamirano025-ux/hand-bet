@@ -1,6 +1,5 @@
 import { ref, set, get, update, remove, onValue, off } from 'firebase/database'
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { db, storage } from './config'
+import { db } from './config'
 
 export async function getUserProfile(uid) {
   if (!db) return null
@@ -58,11 +57,4 @@ export function subscribeFrequentPlayers(uid, callback) {
   const r = ref(db, `userContacts/${uid}`)
   onValue(r, snap => callback(snap.val() || {}))
   return () => off(r)
-}
-
-export async function uploadProfilePhoto(uid, file) {
-  if (!storage) throw new Error('Firebase Storage no configurado')
-  const r = storageRef(storage, `avatars/${uid}`)
-  await uploadBytes(r, file)
-  return getDownloadURL(r)
 }

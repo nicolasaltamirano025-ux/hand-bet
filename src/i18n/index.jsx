@@ -156,6 +156,7 @@ const translations = {
     namePlaceholder: 'Nombre',
     handicap: 'Handicap',
     addPlayer: '+ Agregar jugador',
+    frequentPlayers: 'Jugadores frecuentes',
     enterAllNames: 'Ingresa todos los nombres',
 
     // Step4
@@ -347,6 +348,7 @@ const translations = {
     namePlaceholder: 'Name',
     handicap: 'Handicap',
     addPlayer: '+ Add player',
+    frequentPlayers: 'Frequent players',
     enterAllNames: 'Enter all names',
 
     // Step4

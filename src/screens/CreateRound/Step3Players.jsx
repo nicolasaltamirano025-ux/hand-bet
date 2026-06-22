@@ -1,8 +1,18 @@
 import Button from '../../components/ui/Button'
 import { useLanguage } from '../../i18n'
 
-export default function Step3Players({ players, setPlayers, next, back }) {
+export default function Step3Players({ players, setPlayers, frequentPlayers, next, back }) {
   const { tr } = useLanguage()
+
+  const addedNames = new Set(players.map(p => p.name.trim().toLowerCase()))
+  const frequentList = Object.values(frequentPlayers || {})
+    .filter(fp => !addedNames.has(fp.name.trim().toLowerCase()))
+    .sort((a, b) => b.lastPlayed - a.lastPlayed)
+
+  function addFrequent(fp) {
+    if (players.length >= 6) return
+    setPlayers(p => [...p, { name: fp.name, handicap: fp.handicap }])
+  }
 
   function add() {
     if (players.length >= 6) return
@@ -73,6 +83,23 @@ export default function Step3Players({ players, setPlayers, next, back }) {
           </div>
         ))}
       </div>
+
+      {frequentList.length > 0 && players.length < 6 && (
+        <div className="flex flex-col gap-2">
+          <span className="text-gray-400 text-xs font-semibold uppercase tracking-wide">{tr.frequentPlayers}</span>
+          <div className="flex flex-wrap gap-2">
+            {frequentList.map(fp => (
+              <button
+                key={fp.name}
+                onClick={() => addFrequent(fp)}
+                className="bg-surface border border-border rounded-full px-4 py-2 text-white text-sm font-medium active:bg-border"
+              >
+                + {fp.name} <span className="text-gray-400">HCP {fp.handicap}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {players.length < 6 && (
         <button

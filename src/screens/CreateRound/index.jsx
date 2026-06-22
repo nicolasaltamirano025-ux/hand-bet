@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createRound } from '../../firebase/roundsService'
-import { recordActiveRound } from '../../firebase/userService'
+import { recordActiveRound, recordFrequentPlayers, subscribeFrequentPlayers } from '../../firebase/userService'
 import { useAuth } from '../../contexts/AuthContext'
 import { UNIT_DEFAULTS } from '../../utils/gameLogic'
 import Step1Field from './Step1Field'
@@ -14,7 +14,7 @@ const TOTAL_STEPS = 5
 
 export default function CreateRound() {
   const nav = useNavigate()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
 
@@ -22,6 +22,18 @@ export default function CreateRound() {
   const [roundType, setRoundType] = useState('18')
   const [startingHole, setStartingHole] = useState(1)
   const [players, setPlayers] = useState([{ name: '', handicap: 18 }])
+  const [frequentPlayers, setFrequentPlayers] = useState({})
+
+  // Auto-fill organizer's own name/handicap from their profile, once
+  useEffect(() => {
+    if (!profile) return
+    setPlayers(p => (p[0].name ? p : [{ name: profile.name || '', handicap: profile.defaultHandicap ?? 18 }, ...p.slice(1)]))
+  }, [profile])
+
+  useEffect(() => {
+    if (!user) return
+    return subscribeFrequentPlayers(user.uid, setFrequentPlayers)
+  }, [user])
   const [bets, setBets] = useState({
     mano:    { enabled: true,  valuePerHole: 30 },
     oyes:    { enabled: true,  value: 30 },
@@ -88,6 +100,7 @@ export default function CreateRound() {
     localStorage.setItem('hb_last_round', code)
     if (user) {
       recordActiveRound(user.uid, code, { field: field.name, roundType })
+      recordFrequentPlayers(user.uid, players.slice(1))
     }
     setSaving(false)
     nav(`/round/${code}?new=1`)
@@ -98,6 +111,7 @@ export default function CreateRound() {
     roundType, setRoundType,
     startingHole, setStartingHole,
     players, setPlayers,
+    frequentPlayers,
     bets, setBets,
     next, back, handleCreate, saving,
   }

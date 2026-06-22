@@ -1,5 +1,6 @@
 import { ref, set, get, update, remove, onValue, off } from 'firebase/database'
-import { db } from './config'
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { db, storage } from './config'
 
 export async function getUserProfile(uid) {
   if (!db) return null
@@ -32,4 +33,36 @@ export function subscribeUserRounds(uid, callback) {
   const r = ref(db, `userRounds/${uid}`)
   onValue(r, snap => callback(snap.val() || {}))
   return () => off(r)
+}
+
+function contactKey(name) {
+  return name.trim().toLowerCase().replace(/[.#$/\[\]]/g, '_')
+}
+
+export async function recordFrequentPlayers(uid, players) {
+  if (!db) return
+  const updates = {}
+  for (const p of players) {
+    if (!p.name?.trim()) continue
+    updates[`userContacts/${uid}/${contactKey(p.name)}`] = {
+      name: p.name.trim(),
+      handicap: Number(p.handicap),
+      lastPlayed: Date.now(),
+    }
+  }
+  if (Object.keys(updates).length) await update(ref(db), updates)
+}
+
+export function subscribeFrequentPlayers(uid, callback) {
+  if (!db) { callback({}); return () => {} }
+  const r = ref(db, `userContacts/${uid}`)
+  onValue(r, snap => callback(snap.val() || {}))
+  return () => off(r)
+}
+
+export async function uploadProfilePhoto(uid, file) {
+  if (!storage) throw new Error('Firebase Storage no configurado')
+  const r = storageRef(storage, `avatars/${uid}`)
+  await uploadBytes(r, file)
+  return getDownloadURL(r)
 }

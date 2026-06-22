@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { signOutUser } from '../firebase/auth'
-import { saveUserProfile, subscribeUserRounds, removeUserRound } from '../firebase/userService'
+import { saveUserProfile, subscribeUserRounds, removeUserRound, uploadProfilePhoto } from '../firebase/userService'
 import { deleteRound } from '../firebase/roundsService'
 import Modal from '../components/ui/Modal'
 import AvatarPicker from '../components/profile/AvatarPicker'
@@ -14,13 +14,18 @@ export default function ProfileScreen() {
   const [rounds, setRounds] = useState({})
   const [editingHcp, setEditingHcp] = useState(false)
   const [hcp, setHcp] = useState(18)
+  const [editingGhin, setEditingGhin] = useState(false)
+  const [ghin, setGhin] = useState('')
   const [saving, setSaving] = useState(false)
   const [showAvatarPicker, setShowAvatarPicker] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
-    if (profile) setHcp(profile.defaultHandicap ?? 18)
+    if (profile) {
+      setHcp(profile.defaultHandicap ?? 18)
+      setGhin(profile.ghin || '')
+    }
   }, [profile])
 
   useEffect(() => {
@@ -47,6 +52,14 @@ export default function ProfileScreen() {
     setProfile(p => ({ ...p, defaultHandicap: Number(hcp) }))
     setSaving(false)
     setEditingHcp(false)
+  }
+
+  async function saveGhin() {
+    setSaving(true)
+    await saveUserProfile(user.uid, { ghin: ghin.trim() })
+    setProfile(p => ({ ...p, ghin: ghin.trim() }))
+    setSaving(false)
+    setEditingGhin(false)
   }
 
   async function handleSignOut() {
@@ -125,6 +138,36 @@ export default function ProfileScreen() {
               >{saving ? '...' : 'Guardar'}</button>
             : <button
                 onClick={() => setEditingHcp(true)}
+                className="text-gold text-sm font-semibold border border-gold/40 rounded-lg px-4 py-2"
+              >Editar</button>
+          }
+        </div>
+      </div>
+
+      {/* GHIN */}
+      <div className="px-4 mb-6">
+        <div className="bg-surface border border-border rounded-xl px-4 py-3 flex items-center justify-between">
+          <div>
+            <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Número GHIN</p>
+            {editingGhin
+              ? <input
+                  type="text"
+                  value={ghin}
+                  onChange={e => setGhin(e.target.value)}
+                  placeholder="Ej. 1234567"
+                  className="bg-bg border border-gold rounded-lg px-3 py-1 text-white text-lg font-bold w-32 outline-none"
+                />
+              : <p className="text-white text-lg font-black">{profile?.ghin || '—'}</p>
+            }
+          </div>
+          {editingGhin
+            ? <button
+                onClick={saveGhin}
+                disabled={saving}
+                className="bg-gold text-bg rounded-lg px-4 py-2 font-bold text-sm disabled:opacity-60"
+              >{saving ? '...' : 'Guardar'}</button>
+            : <button
+                onClick={() => setEditingGhin(true)}
                 className="text-gold text-sm font-semibold border border-gold/40 rounded-lg px-4 py-2"
               >Editar</button>
           }
@@ -217,6 +260,12 @@ export default function ProfileScreen() {
           onSelect={async (iconId) => {
             await saveUserProfile(user.uid, { avatarIcon: iconId })
             setProfile(p => ({ ...p, avatarIcon: iconId }))
+            setShowAvatarPicker(false)
+          }}
+          onUploadPhoto={async (file) => {
+            const photoURL = await uploadProfilePhoto(user.uid, file)
+            await saveUserProfile(user.uid, { photoURL, avatarIcon: null })
+            setProfile(p => ({ ...p, photoURL, avatarIcon: null }))
             setShowAvatarPicker(false)
           }}
           onClose={() => setShowAvatarPicker(false)}

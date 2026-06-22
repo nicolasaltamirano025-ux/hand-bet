@@ -779,17 +779,17 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
                   <Chip active={score.chipIn} onClick={() => onChange('chipIn', !score.chipIn)} label={tr.holeOut} />
                 </>
               )}
+              {bets.pinkies?.enabled && (
+                <Chip active={gross >= 10} onClick={() => {}} label="🤙 Pinky" />
+              )}
             </div>
           )}
 
-          {(units.length > 0 || (bets.pinkies?.enabled && gross >= 10)) && (
+          {units.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-0.5">
               {units.map(u => (
                 <span key={u} className="bg-gold/20 text-gold text-xs px-2 py-0.5 rounded-full font-semibold">{unitEmoji(u, tr)}</span>
               ))}
-              {bets.pinkies?.enabled && gross >= 10 && (
-                <span className="bg-red-900/40 text-red-300 text-xs px-2 py-0.5 rounded-full font-semibold">🤙 Pinky</span>
-              )}
             </div>
           )}
 

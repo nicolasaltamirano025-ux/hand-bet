@@ -153,6 +153,17 @@ export default function BetsScreen() {
           </Card>
         )}
 
+        {bets?.penalties?.enabled && (
+          <Card title={`💀 ${tr.penaltiesLabel}`} sub={`Base ${fmt(bets.penalties?.baseValue)}`}>
+            {(round.penaltiesEvents || []).length > 0 ? (round.penaltiesEvents || []).map((ev, i) => (
+              <div key={i} className="flex justify-between py-1 border-b border-border/30 last:border-0">
+                <span className="text-white text-sm">{players[ev.playerId]?.name} · H{ev.holeNum}</span>
+                <span className="text-red-400 text-sm">{ev.penalties.join(', ')}</span>
+              </div>
+            )) : <p className="text-gray-500 text-sm">{tr.noPenaltiesYet}</p>}
+          </Card>
+        )}
+
         {settlement.debts.length > 0 && (
           <div className="bg-surface border border-gold/30 rounded-xl p-4">
             <h3 className="text-white font-bold text-sm mb-3">{tr.whoOwesWhom}</h3>

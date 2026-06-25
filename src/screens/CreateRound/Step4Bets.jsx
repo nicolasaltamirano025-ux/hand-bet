@@ -16,6 +16,13 @@ export default function Step4Bets({ bets, setBets, roundType, next, back }) {
     { key: 'chipIn',    label: 'Hole-out',                        def: 1,  emoji: '🎯' },
   ]
 
+  const PENALTY_KEYS = [
+    { key: 'cuatripod', label: tr.cuatripodLabel, def: 1, emoji: '🐌' },
+    { key: 'trampa',    label: tr.trampaLabel,    def: 1, emoji: '🪤' },
+    { key: 'saleVerde', label: tr.saleVerdeLabel, def: 1, emoji: '🚪' },
+    { key: 'paloma',    label: tr.palomaLabel,    def: 1, emoji: '🕊️' },
+  ]
+
   function toggle(key) {
     setBets(b => ({ ...b, [key]: { ...b[key], enabled: !b[key].enabled } }))
   }
@@ -100,6 +107,25 @@ export default function Step4Bets({ bets, setBets, roundType, next, back }) {
         <Toggle checked={bets.pinkies.enabled} onChange={() => toggle('pinkies')} label={tr.pinkiesLabel} description={tr.pinkiesDesc} />
         {bets.pinkies.enabled && (
           <NumberInput label={tr.valuePerPinky} value={bets.pinkies.value} onChange={v => setVal('pinkies', 'value', v)} />
+        )}
+      </Section>
+
+      <Section title={`💀 ${tr.penaltiesLabel}`}>
+        <Toggle checked={bets.penalties.enabled} onChange={() => toggle('penalties')} label={tr.penaltiesLabel} description={tr.penaltiesDesc} />
+        {bets.penalties.enabled && (
+          <div className="flex flex-col gap-3 mt-2">
+            <NumberInput label={tr.baseValue} value={bets.penalties.baseValue} onChange={v => setVal('penalties', 'baseValue', v)} />
+            <p className="text-gray-400 text-xs">{tr.multipliers}</p>
+            {PENALTY_KEYS.map(p => (
+              <div key={p.key} className="flex items-center justify-between gap-3">
+                <span className="text-white text-sm">{p.emoji} {p.label}</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400 text-sm">×</span>
+                  <MultiplierInput value={bets.penalties[p.key] ?? p.def} onChange={v => setVal('penalties', p.key, v)} />
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </Section>
 

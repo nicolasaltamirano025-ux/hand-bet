@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createRound } from '../../firebase/roundsService'
-import { UNIT_DEFAULTS } from '../../utils/gameLogic'
+import { UNIT_DEFAULTS, PENALTY_DEFAULTS } from '../../utils/gameLogic'
 import Step1Field from './Step1Field'
 import Step2RoundType from './Step2RoundType'
 import Step3Players from './Step3Players'
@@ -25,8 +25,9 @@ export default function CreateRound() {
     medals:  { enabled: true,  frontValue: 30, backValue: 30, totalValue: 30 },
     drives:  { enabled: true,  value: 10 },
     putts:   { enabled: true,  valuePerPutt: 3 },
-    units:   { enabled: true,  baseValue: 30, ...UNIT_DEFAULTS },
-    pinkies: { enabled: false, value: 30 },
+    units:    { enabled: true,  baseValue: 30, ...UNIT_DEFAULTS },
+    pinkies:  { enabled: false, value: 30 },
+    penalties: { enabled: false, baseValue: 30, ...PENALTY_DEFAULTS },
   })
 
   function next() { setStep(s => Math.min(s + 1, TOTAL_STEPS)) }

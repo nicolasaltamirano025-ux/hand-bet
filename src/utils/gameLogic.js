@@ -252,6 +252,24 @@ export function detectUnits(gross, par, inBunker, chipIn) {
   return units
 }
 
+// ─── PENALTIES (unidades negativas) ────────────────────────────────────────
+
+export const PENALTY_DEFAULTS = {
+  cuatripod: 1,
+  trampa:    1,
+  saleVerde: 1,
+  paloma:    1,
+}
+
+export function detectPenalties(putts, stuckInBunker, leftGreen, whiff) {
+  const penalties = []
+  if (putts != null && putts >= 4) penalties.push('cuatripod')
+  if (stuckInBunker) penalties.push('trampa')
+  if (leftGreen) penalties.push('saleVerde')
+  if (whiff) penalties.push('paloma')
+  return penalties
+}
+
 // ─── MEDALS ─────────────────────────────────────────────────────────────────
 
 export function calcMedals(players, holes, roundType) {

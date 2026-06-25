@@ -67,6 +67,12 @@ export default function ScorecardScreen() {
     if (ev.units?.length > 0) unitMap[`${ev.holeNum}_${ev.playerId}`] = true
   }
 
+  // Penalty achievements per player per hole (for red mark)
+  const penaltyMap = {}  // { `${holeNum}_${playerId}`: true }
+  for (const ev of (round.penaltiesEvents || [])) {
+    if (ev.penalties?.length > 0) penaltyMap[`${ev.holeNum}_${ev.playerId}`] = true
+  }
+
   return (
     <div className="flex flex-col min-h-dvh bg-bg">
       <div
@@ -111,6 +117,7 @@ export default function ScorecardScreen() {
                     const diff = g != null ? g - h.par : null
                     const wonHole = holeWinnerMap[h.n] === id
                     const hasUnit = unitMap[`${h.n}_${id}`]
+                    const hasPenalty = penaltyMap[`${h.n}_${id}`]
                     const color = diff == null ? 'text-gray-600'
                       : diff <= -2 ? 'text-yellow-400'
                       : diff === -1 ? 'text-green-400'
@@ -121,6 +128,7 @@ export default function ScorecardScreen() {
                         <div className={`inline-flex flex-col items-center justify-center w-7 h-7 rounded-full font-bold text-xs ${color} ${wonHole ? 'ring-1 ring-gold' : ''}`}>
                           {g ?? '·'}
                           {hasUnit && <span className="text-[8px] text-gold leading-none">★</span>}
+                          {hasPenalty && <span className="text-[8px] text-red-400 leading-none">✗</span>}
                         </div>
                       </td>
                     )

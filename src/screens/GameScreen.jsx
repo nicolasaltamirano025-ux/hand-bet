@@ -2,9 +2,9 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useRound, usePlayer } from '../hooks/useRound'
 import { strokesOnHole, getMinHCP } from '../utils/handicap'
-import { detectUnits } from '../utils/gameLogic'
+import { detectUnits, detectPenalties } from '../utils/gameLogic'
 import { updateRoundDeep, proposePendingScore, acceptPendingScore, rejectPendingScore } from '../firebase/roundsService'
-import { CelebrationOverlay, ManoFlameBadge, SalvamentoOverlay, PinkyOverlay } from '../components/animations/Celebration'
+import { CelebrationOverlay, ManoFlameBadge, SalvamentoOverlay, PinkyOverlay, PenaltyOverlay } from '../components/animations/Celebration'
 import ReviewModal from '../components/game/ReviewModal'
 import Modal from '../components/ui/Modal'
 import Button from '../components/ui/Button'
@@ -75,6 +75,7 @@ export default function GameScreen() {
   const [celebration, setCelebration] = useState(null)
   const [salvamentoAlert, setSalvamentoAlert] = useState(null)
   const [pinkyAlert, setPinkyAlert] = useState(null)
+  const [penaltyAlert, setPenaltyAlert] = useState(null)
   const [showReview, setShowReview] = useState(false)
   const [showCode, setShowCode] = useState(searchParams.get('new') === '1')
   const [pendingScore, setPendingScore] = useState({})
@@ -154,6 +155,7 @@ export default function GameScreen() {
       setTimeout(() => {
         if (ev.type === 'salvamento') setSalvamentoAlert(ev.name)
         else if (ev.type === 'pinky') setPinkyAlert(ev.name)
+        else if (ev.type === 'penalty') setPenaltyAlert({ subtype: ev.subtype, name: ev.name })
         else { const cel = celebMap[ev.type]?.(ev); if (cel) setCelebration(cel) }
       }, i * 2800)
     })
@@ -313,6 +315,7 @@ export default function GameScreen() {
     const prevDriveEvents  = (round.driveEvents  || []).filter(e => e.holeNum !== holeNum)
     const prevUnitsEvents  = (round.unitsEvents  || []).filter(e => e.holeNum !== holeNum)
     const prevPinkiesEvents = (round.pinkiesEvents || []).filter(e => e.holeNum !== holeNum)
+    const prevPenaltiesEvents = (round.penaltiesEvents || []).filter(e => e.holeNum !== holeNum)
 
     // ── Mano ───────────────────────────────────────────────────────────────
     if (bets.mano?.enabled) {
@@ -459,6 +462,23 @@ export default function GameScreen() {
       updates['pinkiesEvents'] = newPinkiesEvents
     }
 
+    // ── Penalties (unidades negativas) ──────────────────────────────────────
+    if (bets.penalties?.enabled) {
+      const newPenaltiesEvents = [...prevPenaltiesEvents]
+      for (const id of playerIds) {
+        const s = pendingScore[id]
+        if (!s || s.gross == null) continue
+        const achieved = detectPenalties(s.putts, s.stuckInBunker, s.leftGreen, s.whiff)
+        if (achieved.length > 0) {
+          newPenaltiesEvents.push({ holeNum, playerId: id, penalties: achieved })
+          for (const subtype of achieved) {
+            celebrationsToFire.push({ type: 'penalty', subtype, name: players[id]?.name })
+          }
+        }
+      }
+      updates['penaltiesEvents'] = newPenaltiesEvents
+    }
+
     if (celebrationsToFire.length > 0 && !celebratedHolesRef.current.has(holeNum)) {
       celebratedHolesRef.current.add(holeNum)
       updates['celebration'] = { events: celebrationsToFire, ts: Date.now() }
@@ -577,6 +597,9 @@ export default function GameScreen() {
       {pinkyAlert && (
         <PinkyOverlay playerName={pinkyAlert} onDone={() => setPinkyAlert(null)} />
       )}
+      {penaltyAlert && (
+        <PenaltyOverlay subtype={penaltyAlert.subtype} playerName={penaltyAlert.name} onDone={() => setPenaltyAlert(null)} />
+      )}
 
       <ReviewModal
         open={showReview}
@@ -675,6 +698,7 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
   const scoreLabel = diff == null ? '—' : diff === -3 ? tr.albatross.replace('🐦 ', '') : diff === -2 ? 'Eagle' : diff === -1 ? 'Birdie' : diff === 0 ? 'Par' : `+${diff}`
 
   const units = gross != null ? detectUnits(gross, hole.par, score.inBunker, score.chipIn) : []
+  const penalties = gross != null ? detectPenalties(score.putts, score.stuckInBunker, score.leftGreen, score.whiff) : []
 
   useEffect(() => {
     if (!bets.putts?.enabled || hole.par !== 3 || !score.onGreenFirstShot) return
@@ -763,6 +787,13 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
                   <Chip active={score.chipIn} onClick={() => onChange('chipIn', !score.chipIn)} label={tr.holeOut} />
                 </>
               )}
+              {bets.penalties?.enabled && (
+                <>
+                  <Chip active={score.stuckInBunker} onClick={() => onChange('stuckInBunker', !score.stuckInBunker)} label={tr.stuckInBunkerChip} />
+                  <Chip active={score.leftGreen} onClick={() => onChange('leftGreen', !score.leftGreen)} label={tr.leftGreenChip} />
+                  <Chip active={score.whiff} onClick={() => onChange('whiff', !score.whiff)} label={tr.whiffChip} />
+                </>
+              )}
             </div>
           )}
 
@@ -770,6 +801,14 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
             <div className="flex flex-wrap gap-1 mt-0.5">
               {units.map(u => (
                 <span key={u} className="bg-gold/20 text-gold text-xs px-2 py-0.5 rounded-full font-semibold">{unitEmoji(u, tr)}</span>
+              ))}
+            </div>
+          )}
+
+          {penalties.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-0.5">
+              {penalties.map(p => (
+                <span key={p} className="bg-red-900/40 text-red-300 text-xs px-2 py-0.5 rounded-full font-semibold">{penaltyEmoji(p, tr)}</span>
               ))}
             </div>
           )}
@@ -795,6 +834,7 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
           {score.driveWinner && <span>{tr.drive}</span>}
           {score.onGreenFirstShot && <span>🟢</span>}
           {units.map(u => <span key={u}>{unitEmoji(u, tr)}</span>)}
+          {penalties.map(p => <span key={p}>{penaltyEmoji(p, tr)}</span>)}
         </div>
       )}
     </div>
@@ -820,6 +860,16 @@ function unitEmoji(key, tr) {
     holeInOne: tr.holeInOne,
     sandyPar:  tr.sandyPar,
     chipIn:    tr.chipIn,
+  }
+  return map[key] || key
+}
+
+function penaltyEmoji(key, tr) {
+  const map = {
+    cuatripod: tr.cuatripod,
+    trampa:    tr.trampa,
+    saleVerde: tr.saleVerde,
+    paloma:    tr.paloma,
   }
   return map[key] || key
 }

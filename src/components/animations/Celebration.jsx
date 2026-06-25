@@ -74,6 +74,40 @@ export function PinkyOverlay({ playerName, onDone }) {
   )
 }
 
+const PENALTY_THEMES = {
+  cuatripod: { emoji: '🐌', title: 'CUATRIPOD',  bg: 'rgba(46,16,82,0.95)', color: '#D8B4FE' },
+  trampa:    { emoji: '🪤', title: 'TRAMPA',     bg: 'rgba(92,51,8,0.95)',  color: '#FCD34D' },
+  saleVerde: { emoji: '🚪', title: 'SE SALIÓ',   bg: 'rgba(20,60,40,0.95)', color: '#86EFAC' },
+  paloma:    { emoji: '🕊️', title: 'PALOMA',     bg: 'rgba(55,65,81,0.95)', color: '#E5E7EB' },
+}
+
+export function PenaltyOverlay({ subtype, playerName, onDone }) {
+  const [visible, setVisible] = useState(true)
+  const theme = PENALTY_THEMES[subtype] || PENALTY_THEMES.paloma
+
+  useEffect(() => {
+    confetti({
+      particleCount: 70,
+      spread: 90,
+      origin: { y: 0.45 },
+      colors: [theme.color, '#9CA3AF', '#4B5563'],
+    })
+    const t = setTimeout(() => { setVisible(false); onDone?.() }, 2600)
+    return () => clearTimeout(t)
+  }, [])
+
+  if (!visible) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center animate-pop-in" style={{ background: theme.bg }}>
+      <div className="text-8xl mb-3 select-none">{theme.emoji}</div>
+      <div className="font-black text-5xl tracking-widest text-center px-6" style={{ color: theme.color }}>{theme.title}</div>
+      <div className="text-white text-2xl font-bold mt-3">{playerName}</div>
+      <div className="text-sm mt-2 text-gray-300">paga una unidad a todos</div>
+    </div>
+  )
+}
+
 export function SalvamentoOverlay({ receiverName, label, msg, onDone }) {
   const [visible, setVisible] = useState(true)
 

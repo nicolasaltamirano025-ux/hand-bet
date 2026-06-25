@@ -1,5 +1,5 @@
 import { strokesOnHole, getMinHCP } from './handicap'
-import { detectUnits, UNIT_DEFAULTS, calcMedals, calcPutts } from './gameLogic'
+import { detectUnits, UNIT_DEFAULTS, detectPenalties, PENALTY_DEFAULTS, calcMedals, calcPutts } from './gameLogic'
 
 function holesComplete(holesMap, playerIds, predicate) {
   const relevant = Object.values(holesMap || {}).filter(predicate)
@@ -161,6 +161,27 @@ export function computeSettlement(round) {
     }
   }
 
+  // ── PENALTIES (unidades negativas) ──────────────────────────────────────────
+  if (bets?.penalties?.enabled) {
+    const penaltyValues = { ...PENALTY_DEFAULTS, ...(bets.penalties || {}) }
+    const baseVal = bets.penalties.baseValue || 0
+
+    for (const hole of holes) {
+      const holeScores = holesMap[hole.n]?.scores || holesMap[String(hole.n)]?.scores || {}
+      for (const id of playerIds) {
+        const s = holeScores[id]
+        if (!s || s.gross == null) continue
+        const achieved = detectPenalties(s.putts, s.stuckInBunker, s.leftGreen, s.whiff)
+        for (const penalty of achieved) {
+          const multiplier = penaltyValues[penalty] || 1
+          const amount = baseVal * multiplier * (playerIds.length - 1)
+          const others = playerIds.filter(pid => pid !== id)
+          pay([id], others, amount, `${penaltyLabel(penalty)} hoyo ${hole.n} — ${players[id].name}`)
+        }
+      }
+    }
+  }
+
   const debts = simplifyDebts(ledger, players)
 
   return { items, debts, ledger }
@@ -174,6 +195,16 @@ function unitLabel(key) {
     holeInOne: 'Hoyo en uno',
     sandyPar:  'Sandy par',
     chipIn:    'Hole-out',
+  }
+  return map[key] || key
+}
+
+function penaltyLabel(key) {
+  const map = {
+    cuatripod: 'Cuatripod',
+    trampa:    'Trampa',
+    saleVerde: 'Salió del green',
+    paloma:    'Paloma',
   }
   return map[key] || key
 }

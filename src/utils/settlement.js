@@ -201,7 +201,7 @@ function unitLabel(key) {
 
 function penaltyLabel(key) {
   const map = {
-    cuatripod: 'Cuatripod',
+    cuatripod: '4-putts',
     trampa:    'Trampa',
     saleVerde: 'Salió del green',
     paloma:    'Paloma',

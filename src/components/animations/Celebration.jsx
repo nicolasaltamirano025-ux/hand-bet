@@ -75,7 +75,7 @@ export function PinkyOverlay({ playerName, onDone }) {
 }
 
 const PENALTY_THEMES = {
-  cuatripod: { emoji: '🐌', title: 'CUATRIPOD',  bg: 'rgba(46,16,82,0.95)', color: '#D8B4FE' },
+  cuatripod: { emoji: '🐌', title: '4-PUTTS',    bg: 'rgba(46,16,82,0.95)', color: '#D8B4FE' },
   trampa:    { emoji: '🪤', title: 'TRAMPA',     bg: 'rgba(92,51,8,0.95)',  color: '#FCD34D' },
   saleVerde: { emoji: '🚪', title: 'SE SALIÓ',   bg: 'rgba(20,60,40,0.95)', color: '#86EFAC' },
   paloma:    { emoji: '🕊️', title: 'PALOMA',     bg: 'rgba(55,65,81,0.95)', color: '#E5E7EB' },

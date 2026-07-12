@@ -422,6 +422,81 @@ function StateOverride({ round, players, playerIds, code }) {
   )
 }
 
+// ─── Course Editor ───────────────────────────────────────────────────────────
+
+function SmallNumInput({ value, min, max, onChange }) {
+  const [local, setLocal] = useState(String(value ?? ''))
+  useEffect(() => { setLocal(String(value ?? '')) }, [value])
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={local}
+      onChange={e => setLocal(e.target.value.replace(/[^0-9]/g, ''))}
+      onBlur={() => {
+        const n = Math.min(max, Math.max(min, parseInt(local, 10) || min))
+        setLocal(String(n))
+        onChange(n)
+      }}
+      className="bg-bg border border-border rounded-lg px-2 py-1.5 text-white text-center w-14 outline-none text-sm focus:border-gold"
+    />
+  )
+}
+
+function CourseEditor({ holes, code }) {
+  const [localHoles, setLocalHoles] = useState(holes.map(h => ({ n: h.n, par: h.par, si: h.si })))
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    setLocalHoles(holes.map(h => ({ n: h.n, par: h.par, si: h.si })))
+  }, [holes.length])
+
+  function setField(n, field, val) {
+    setLocalHoles(prev => prev.map(h => h.n === n ? { ...h, [field]: val } : h))
+    setSaved(false)
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    const updates = {}
+    for (const h of localHoles) {
+      updates[`holes/${h.n}/par`] = h.par
+      updates[`holes/${h.n}/si`] = h.si
+    }
+    await updateRoundDeep(code, updates)
+    setSaving(false)
+    setSaved(true)
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-3 gap-2 pb-1 border-b border-border/40">
+        <span className="text-gray-500 text-xs font-semibold">Hoyo</span>
+        <span className="text-gray-500 text-xs font-semibold text-center">Par</span>
+        <span className="text-gray-500 text-xs font-semibold text-center">Ventaja (SI)</span>
+      </div>
+      {localHoles.map(h => (
+        <div key={h.n} className="grid grid-cols-3 items-center gap-2">
+          <span className="text-white text-sm font-semibold">H{h.n}</span>
+          <div className="flex justify-center">
+            <SmallNumInput value={h.par} min={3} max={5} onChange={v => setField(h.n, 'par', v)} />
+          </div>
+          <div className="flex justify-center">
+            <SmallNumInput value={h.si} min={1} max={18} onChange={v => setField(h.n, 'si', v)} />
+          </div>
+        </div>
+      ))}
+      <div className="flex items-center gap-3 pt-2 border-t border-border/40">
+        <Button onClick={handleSave} disabled={saving} className="flex-1">
+          {saving ? 'Guardando…' : 'Guardar campo'}
+        </Button>
+        <SaveFeedback saved={saved} />
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
 export default function AdminScreen() {
@@ -492,7 +567,16 @@ export default function AdminScreen() {
           />
         </AdminSection>
 
-        {/* Section 3: State override */}
+        {/* Section 3: Course config */}
+        <AdminSection
+          emoji="🗺️"
+          title="Configuración del campo"
+          description="Corrige el par o la ventaja (SI) de cualquier hoyo. Aplica inmediatamente al cálculo de handicaps, unidades y medals."
+        >
+          <CourseEditor holes={holes} code={code} />
+        </AdminSection>
+
+        {/* Section 4: State override */}
         <AdminSection
           emoji="🔧"
           title="Estado del juego"

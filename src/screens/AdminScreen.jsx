@@ -89,11 +89,11 @@ function BetsEditor({ initialBets, roundType, code }) {
   ]
 
   function toggle(key) {
-    setBets(b => ({ ...b, [key]: { ...b[key], enabled: !b[key].enabled } }))
+    setBets(b => ({ ...b, [key]: { ...b[key], enabled: !b[key]?.enabled } }))
     setSaved(false)
   }
   function setVal(section, field, val) {
-    setBets(b => ({ ...b, [section]: { ...b[section], [field]: val } }))
+    setBets(b => ({ ...b, [section]: { ...(b[section] ?? {}), [field]: val } }))
     setSaved(false)
   }
 

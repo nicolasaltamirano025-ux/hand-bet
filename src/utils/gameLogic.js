@@ -338,3 +338,38 @@ export function calcPutts(players, holes) {
 
   return { totalPutts, minPlayers, maxPlayers, min, max }
 }
+
+// ─── STATE REBUILDERS (for admin overrides) ──────────────────────────────────
+
+export function rebuildManoState(events) {
+  let s = { holderId: null, isOpen: false, accumulated: 0 }
+  for (const e of events) {
+    if (e.type === 'mano_open')             s = { holderId: null, isOpen: true, accumulated: 1 }
+    else if (e.type === 'mano_accumulated') s = { ...s, accumulated: e.newTotal }
+    else if (e.type === 'mano_taken')       s = { holderId: e.holderId, isOpen: true, accumulated: e.newTotal }
+    else if (e.type === 'mano_win' || e.type === 'hole_win') s = { holderId: null, isOpen: false, accumulated: 0 }
+  }
+  return s
+}
+
+export function rebuildOyesState(events) {
+  let s = { accumulated: 0, wonSequentially: [], zapatoTriggered: false }
+  for (const e of events) {
+    if (e.type === 'oyes_accumulated') s = { ...s, accumulated: e.newTotal }
+    else if (e.type === 'oyes_won') {
+      const seq = !e.wasAccumulated && e.winners.length === 1
+        ? [...s.wonSequentially, e.winners[0]] : s.wonSequentially
+      s = { ...s, accumulated: 0, wonSequentially: seq }
+    } else if (e.type === 'zapato') s = { ...s, zapatoTriggered: true }
+  }
+  return s
+}
+
+export function rebuildDrivesAccumulated(events) {
+  let acc = 0
+  for (const e of events) {
+    if (e.type === 'drive_accumulated') acc = e.newTotal
+    else if (e.type === 'drive_won') acc = 0
+  }
+  return acc
+}

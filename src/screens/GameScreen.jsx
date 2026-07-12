@@ -2,47 +2,13 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useRound, usePlayer } from '../hooks/useRound'
 import { strokesOnHole, getMinHCP } from '../utils/handicap'
-import { detectUnits, detectPenalties } from '../utils/gameLogic'
+import { detectUnits, detectPenalties, rebuildManoState, rebuildOyesState, rebuildDrivesAccumulated } from '../utils/gameLogic'
 import { updateRoundDeep, proposePendingScore, acceptPendingScore, rejectPendingScore } from '../firebase/roundsService'
 import { CelebrationOverlay, ManoFlameBadge, SalvamentoOverlay, PinkyOverlay, PenaltyOverlay } from '../components/animations/Celebration'
 import ReviewModal from '../components/game/ReviewModal'
 import Modal from '../components/ui/Modal'
 import Button from '../components/ui/Button'
 import { useLanguage } from '../i18n'
-
-// ── State rebuilders (for idempotent re-saves) ───────────────────────────────
-function rebuildManoState(events) {
-  let s = { holderId: null, isOpen: false, accumulated: 0 }
-  for (const e of events) {
-    if (e.type === 'mano_open')             s = { holderId: null, isOpen: true, accumulated: 1 }
-    else if (e.type === 'mano_accumulated') s = { ...s, accumulated: e.newTotal }
-    else if (e.type === 'mano_taken')       s = { holderId: e.holderId, isOpen: true, accumulated: e.newTotal }
-    else if (e.type === 'mano_win' || e.type === 'hole_win') s = { holderId: null, isOpen: false, accumulated: 0 }
-  }
-  return s
-}
-
-function rebuildOyesState(events) {
-  let s = { accumulated: 0, wonSequentially: [], zapatoTriggered: false }
-  for (const e of events) {
-    if (e.type === 'oyes_accumulated') s = { ...s, accumulated: e.newTotal }
-    else if (e.type === 'oyes_won') {
-      const seq = !e.wasAccumulated && e.winners.length === 1
-        ? [...s.wonSequentially, e.winners[0]] : s.wonSequentially
-      s = { ...s, accumulated: 0, wonSequentially: seq }
-    } else if (e.type === 'zapato') s = { ...s, zapatoTriggered: true }
-  }
-  return s
-}
-
-function rebuildDrivesAccumulated(events) {
-  let acc = 0
-  for (const e of events) {
-    if (e.type === 'drive_accumulated') acc = e.newTotal
-    else if (e.type === 'drive_won') acc = 0
-  }
-  return acc
-}
 
 // Pairwise handicap comparison: returns players who don't lose to anyone
 function getPairwiseWinners(playerIds, grossScores, handicaps, holeSI) {
@@ -106,10 +72,15 @@ export default function GameScreen() {
   const bets = round?.bets || {}
   const minHCP = getMinHCP(players)
 
-  // On first load, jump to the last hole that has saved scores
+  // On first load, jump to the editHole param or the last hole with saved scores
   useEffect(() => {
     if (initialHoleSet.current || holes.length === 0) return
     initialHoleSet.current = true
+    const editHoleN = parseInt(searchParams.get('editHole') || '0')
+    if (editHoleN) {
+      const idx = holes.findIndex(h => h.n === editHoleN)
+      if (idx >= 0) { setCurrentHoleIdx(idx); return }
+    }
     let lastIdx = 0
     for (let i = 0; i < holes.length; i++) {
       const saved = round?.holes?.[holes[i].n]?.scores || {}
@@ -513,6 +484,7 @@ export default function GameScreen() {
             <div className="flex gap-1">
               <button onClick={() => nav(`/round/${code}/scorecard`)} className="text-xs text-gray-400 border border-border rounded-lg px-2.5 py-1.5">📋</button>
               <button onClick={() => nav(`/round/${code}/bets`)} className="text-xs text-gray-400 border border-border rounded-lg px-2.5 py-1.5">💰</button>
+              {isCreator && <button onClick={() => nav(`/round/${code}/admin`)} className="text-xs text-gray-400 border border-border rounded-lg px-2.5 py-1.5">⚙️</button>}
             </div>
           </div>
         </div>
@@ -532,6 +504,13 @@ export default function GameScreen() {
           </div>
         )}
       </div>
+
+      {searchParams.get('editHole') && (
+        <div className="bg-yellow-900/30 border-b border-yellow-700/40 px-4 py-2 flex items-center justify-between">
+          <span className="text-yellow-300 text-xs font-semibold">✏️ Modo edición — Hoyo {currentHole?.n}</span>
+          <button onClick={() => nav(`/round/${code}/admin`)} className="text-yellow-400 text-xs font-semibold">Volver al admin →</button>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto px-4 py-4">
         <div className="flex flex-col gap-3">

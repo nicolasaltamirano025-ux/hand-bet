@@ -34,6 +34,7 @@ export default function BetsScreen() {
       >
         <button onClick={() => nav(-1)} className="text-gray-400 text-sm">{tr.back}</button>
         <h2 className="text-white font-bold text-lg flex-1 text-center">{tr.betsStatus}</h2>
+        <button onClick={() => nav('/')} className="text-xs text-gray-400 border border-border rounded-lg px-2.5 py-1.5">🏠</button>
         <button onClick={() => nav(`/round/${code}/final`)} className="text-gold text-sm">{tr.finalBtn}</button>
       </div>
 
@@ -129,16 +130,16 @@ export default function BetsScreen() {
         )}
 
         {bets?.pinkies?.enabled && (
-          <Card title={`🤙 ${tr.pinkiesLabel}`} sub={`${fmt(bets.pinkies.value)} / pinky`}>
+          <Card title={`⚠️ ${tr.pinkiesLabel}`} sub={`${fmt(bets.pinkies.value)} / castigo`}>
             {(round.pinkiesEvents || []).filter(e => e.type === 'pinky').length > 0
               ? (round.pinkiesEvents || []).filter(e => e.type === 'pinky').map((e, i) => (
                   <EventRow key={i}
-                    label={`Pinky H${e.holeNum}`}
+                    label={`${e.subtype === 'fourPutt' ? '4 Putts' : 'Pinky'} H${e.holeNum}`}
                     value={players[e.playerId]?.name}
                     amount={bets.pinkies.value * (playerIds.length - 1)}
                   />
                 ))
-              : <p className="text-gray-500 text-sm">Sin pinkies</p>}
+              : <p className="text-gray-500 text-sm">Sin castigos</p>}
           </Card>
         )}
 

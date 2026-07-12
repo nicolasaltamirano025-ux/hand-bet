@@ -12,6 +12,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (!auth) { setUser(null); return }
+
     return onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser)

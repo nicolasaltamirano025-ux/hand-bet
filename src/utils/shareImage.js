@@ -172,15 +172,15 @@ export async function generateShareImage(round, players, settlement) {
     const isWinner = i === 0 && bal > 0
     const isLoser  = i === sorted.length - 1 && bal < 0
 
-    // Row highlight
+    // Row highlight — vertically centered around the name + HCP text block
     if (isWinner) {
       ctx.fillStyle = '#C9A84C18'
-      rr(ctx, PAD - 12, rowY - 6, W - PAD * 2 + 24, playerRowH - 4, 12)
+      rr(ctx, PAD - 12, rowY - 2, W - PAD * 2 + 24, playerRowH - 2, 12)
       ctx.fill()
       // Gold border
       ctx.strokeStyle = '#C9A84C55'
       ctx.lineWidth = 1.5
-      rr(ctx, PAD - 12, rowY - 6, W - PAD * 2 + 24, playerRowH - 4, 12)
+      rr(ctx, PAD - 12, rowY - 2, W - PAD * 2 + 24, playerRowH - 2, 12)
       ctx.stroke()
     }
 

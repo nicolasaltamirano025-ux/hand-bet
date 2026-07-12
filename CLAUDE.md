@@ -42,7 +42,7 @@ La app es mobile-first. Siempre verificar que los elementos no queden detrás de
 - Si nadie gana → se acumula al siguiente hoyo.
 
 ### ⛳ Putts
-- Individual: cada jugador paga `(sus putts − mínimo del grupo) × valor por putt` al jugador con menos putts.
+- Individual: el jugador con MÁS putts paga `(sus putts totales) × valor por putt` al jugador con menos putts. No es una diferencia — es el total de putts del peor multiplicado por el valor.
 - 0 putts sin chip de Hole-out = error (app avisa).
 
 ### 🏆 Unidades

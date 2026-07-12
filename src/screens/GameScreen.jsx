@@ -71,6 +71,8 @@ export default function GameScreen() {
   const playerIds = Object.keys(players)
   const bets = round?.bets || {}
   const minHCP = getMinHCP(players)
+  const referencePlayerId = playerIds.find(id => players[id].handicap === minHCP)
+  const referenceName = referencePlayerId ? players[referencePlayerId].name : null
 
   // On first load, jump to the editHole param or the last hole with saved scores
   useEffect(() => {
@@ -216,7 +218,9 @@ export default function GameScreen() {
       const s = pendingScore[id] || {}
       if (s.gross == null) continue
       const { gross, putts = 0 } = s
-      if (putts > gross) {
+      if (s.chipIn && putts > 0) {
+        impossible.push(`${players[id]?.name}: marcado Hole-out pero tiene ${putts} putt${putts === 1 ? '' : 's'} (Hole-out implica 0 putts)`)
+      } else if (putts > gross) {
         impossible.push(`${players[id]?.name}: ${putts} putts con score ${gross} (más putts que golpes totales)`)
       } else if (gross - putts < 1 && putts > 0 && !s.chipIn) {
         impossible.push(`${players[id]?.name}: sin golpes de approach (putts=${putts}, score=${gross})`)
@@ -280,13 +284,25 @@ export default function GameScreen() {
       }
     }
 
-    // Filter existing events for this hole (makes re-save idempotent)
-    const prevManoEvents   = (round.manoEvents   || []).filter(e => e.holeNum !== holeNum)
-    const prevOyesEvents   = (round.oyesEvents   || []).filter(e => e.holeNum !== holeNum)
-    const prevDriveEvents  = (round.driveEvents  || []).filter(e => e.holeNum !== holeNum)
-    const prevUnitsEvents  = (round.unitsEvents  || []).filter(e => e.holeNum !== holeNum)
-    const prevPinkiesEvents = (round.pinkiesEvents || []).filter(e => e.holeNum !== holeNum)
-    const prevPenaltiesEvents = (round.penaltiesEvents || []).filter(e => e.holeNum !== holeNum)
+    // Re-save idempotency: rebuild state ONLY from holes played before the current one.
+    // Including future holes in the rebuild inflates accumulated counts because their
+    // stale newTotal values get processed by rebuildManoState/rebuildOyesState/etc.
+    const currentPO  = currentHole.playOrder ?? currentHole.n
+    const beforeNums = new Set(holes.filter(h => (h.playOrder ?? h.n) < currentPO).map(h => h.n))
+    const afterNums  = new Set(holes.filter(h => (h.playOrder ?? h.n) > currentPO).map(h => h.n))
+
+    const prevManoEvents      = (round.manoEvents      || []).filter(e => beforeNums.has(e.holeNum))
+    const prevOyesEvents      = (round.oyesEvents      || []).filter(e => beforeNums.has(e.holeNum))
+    const prevDriveEvents     = (round.driveEvents     || []).filter(e => beforeNums.has(e.holeNum))
+    const prevUnitsEvents     = (round.unitsEvents     || []).filter(e => beforeNums.has(e.holeNum))
+    const prevPinkiesEvents   = (round.pinkiesEvents   || []).filter(e => beforeNums.has(e.holeNum))
+    const prevPenaltiesEvents = (round.penaltiesEvents || []).filter(e => beforeNums.has(e.holeNum))
+    const manoEventsAfter      = (round.manoEvents      || []).filter(e => afterNums.has(e.holeNum))
+    const oyesEventsAfter      = (round.oyesEvents      || []).filter(e => afterNums.has(e.holeNum))
+    const driveEventsAfter     = (round.driveEvents     || []).filter(e => afterNums.has(e.holeNum))
+    const unitsEventsAfter     = (round.unitsEvents     || []).filter(e => afterNums.has(e.holeNum))
+    const pinkiesEventsAfter   = (round.pinkiesEvents   || []).filter(e => afterNums.has(e.holeNum))
+    const penaltiesEventsAfter = (round.penaltiesEvents || []).filter(e => afterNums.has(e.holeNum))
 
     // ── Mano ───────────────────────────────────────────────────────────────
     if (bets.mano?.enabled) {
@@ -344,7 +360,7 @@ export default function GameScreen() {
         }
 
         updates['manoState'] = mState
-        updates['manoEvents'] = newManoEvents
+        updates['manoEvents'] = [...newManoEvents, ...manoEventsAfter]
       }
     }
 
@@ -355,7 +371,7 @@ export default function GameScreen() {
 
       const eligible = playerIds.filter(id => {
         const s = pendingScore[id]
-        return s?.gross === par && s?.onGreenFirstShot === true
+        return s?.gross != null && s.gross <= par && s?.onGreenFirstShot === true
       })
       const qualifiedClosest = playerIds.filter(id => pendingScore[id]?.oyesClosest && eligible.includes(id))
 
@@ -384,7 +400,7 @@ export default function GameScreen() {
       }
 
       updates['oyesState'] = oyesSt
-      updates['oyesEvents'] = newOyesEvents
+      updates['oyesEvents'] = [...newOyesEvents, ...oyesEventsAfter]
     }
 
     // ── Drives ─────────────────────────────────────────────────────────────
@@ -404,7 +420,7 @@ export default function GameScreen() {
         updates['drivesAccumulated'] = 0
         celebrationsToFire.push({ type: 'drive', name: players[driveWinner]?.name })
       }
-      updates['driveEvents'] = newDriveEvents
+      updates['driveEvents'] = [...newDriveEvents, ...driveEventsAfter]
     }
 
     // ── Units ──────────────────────────────────────────────────────────────
@@ -416,21 +432,25 @@ export default function GameScreen() {
         const achieved = detectUnits(s.gross, par, s.inBunker, s.chipIn)
         if (achieved.length > 0) newUnitsEvents.push({ holeNum, playerId: id, units: achieved })
       }
-      updates['unitsEvents'] = newUnitsEvents
+      updates['unitsEvents'] = [...newUnitsEvents, ...unitsEventsAfter]
     }
 
-    // ── Pinkies ────────────────────────────────────────────────────────────────
+    // ── Castigos (Pinky, 4-Putts, ...) ──────────────────────────────────────────
     if (bets.pinkies?.enabled) {
       const newPinkiesEvents = [...prevPinkiesEvents]
       for (const id of playerIds) {
         const s = pendingScore[id]
         if (!s || s.gross == null) continue
-        if (s.gross >= par + 2) {
-          newPinkiesEvents.push({ type: 'pinky', playerId: id, holeNum })
+        if (s.pinky) {
+          newPinkiesEvents.push({ type: 'pinky', subtype: 'pinky', playerId: id, holeNum })
+          celebrationsToFire.push({ type: 'pinky', name: players[id]?.name })
+        }
+        if (s.fourPutt) {
+          newPinkiesEvents.push({ type: 'pinky', subtype: 'fourPutt', playerId: id, holeNum })
           celebrationsToFire.push({ type: 'pinky', name: players[id]?.name })
         }
       }
-      updates['pinkiesEvents'] = newPinkiesEvents
+      updates['pinkiesEvents'] = [...newPinkiesEvents, ...pinkiesEventsAfter]
     }
 
     // ── Penalties (unidades negativas) ──────────────────────────────────────
@@ -447,7 +467,7 @@ export default function GameScreen() {
           }
         }
       }
-      updates['penaltiesEvents'] = newPenaltiesEvents
+      updates['penaltiesEvents'] = [...newPenaltiesEvents, ...penaltiesEventsAfter]
     }
 
     if (celebrationsToFire.length > 0 && !celebratedHolesRef.current.has(holeNum)) {
@@ -482,6 +502,7 @@ export default function GameScreen() {
           <div className="flex items-center gap-2">
             {manoState.accumulated > 0 && <ManoFlameBadge accumulated={manoState.accumulated} />}
             <div className="flex gap-1">
+              <button onClick={() => nav('/')} className="text-xs text-gray-400 border border-border rounded-lg px-2.5 py-1.5">🏠</button>
               <button onClick={() => nav(`/round/${code}/scorecard`)} className="text-xs text-gray-400 border border-border rounded-lg px-2.5 py-1.5">📋</button>
               <button onClick={() => nav(`/round/${code}/bets`)} className="text-xs text-gray-400 border border-border rounded-lg px-2.5 py-1.5">💰</button>
               {isCreator && <button onClick={() => nav(`/round/${code}/admin`)} className="text-xs text-gray-400 border border-border rounded-lg px-2.5 py-1.5">⚙️</button>}
@@ -527,6 +548,7 @@ export default function GameScreen() {
               proposal={isCreator ? (holeProposals[id] || null) : null}
               myPendingProposal={!isCreator && id === localPlayerId ? (holeProposals[id] || null) : null}
               minHCP={minHCP}
+              referenceName={referenceName}
               onChange={(field, val) => updateScore(id, field, val)}
               onSetDriveWinner={() => setDriveWinner(id)}
               onSetOyesClosest={() => setOyesClosest(id)}
@@ -665,19 +687,26 @@ export default function GameScreen() {
   )
 }
 
-function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyCard, proposal, myPendingProposal, minHCP, onChange, onSetDriveWinner, onSetOyesClosest, onPropose, onAcceptProposal, onRejectProposal }) {
+const CASTIGOS = [
+  { key: 'pinky',    emoji: '🤙', label: 'Pinky',    desc: 'Score de doble dígito (10 o más) en este hoyo' },
+  { key: 'fourPutt', emoji: '🐌', label: '4 Putts',  desc: '4 o más putts en este hoyo' },
+]
+
+function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyCard, proposal, myPendingProposal, minHCP, referenceName, onChange, onSetDriveWinner, onSetOyesClosest, onPropose, onAcceptProposal, onRejectProposal }) {
   const { tr } = useLanguage()
+  const [showCastigos, setShowCastigos] = useState(false)
   const canEdit = isCreator || isMyCard
   const strokes = strokesOnHole(player.handicap - minHCP, hole.si)
   const gross = score.gross
   const net = gross != null ? gross - strokes : null
 
   const diff = gross != null ? gross - hole.par : null
-  const scoreColor = diff == null ? 'text-white' : diff <= -2 ? 'text-yellow-400' : diff === -1 ? 'text-green-400' : diff === 0 ? 'text-blue-400' : 'text-gray-300'
+  const scoreColor = diff == null ? 'text-white' : diff <= -2 ? 'text-yellow-400' : diff === -1 ? 'text-green-400' : diff === 0 ? 'text-blue-400' : 'text-red-400'
   const scoreLabel = diff == null ? '—' : diff === -3 ? tr.albatross.replace('🐦 ', '') : diff === -2 ? 'Eagle' : diff === -1 ? 'Birdie' : diff === 0 ? 'Par' : `+${diff}`
 
   const units = gross != null ? detectUnits(gross, hole.par, score.inBunker, score.chipIn) : []
   const penalties = gross != null ? detectPenalties(score.putts, score.stuckInBunker, score.leftGreen, score.whiff) : []
+  const activeCastigos = CASTIGOS.filter(c => score[c.key])
 
   useEffect(() => {
     if (!bets.putts?.enabled || hole.par !== 3 || !score.onGreenFirstShot) return
@@ -685,6 +714,17 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
     const auto = gross - 1
     if ((score.putts ?? 0) !== auto) onChange('putts', auto)
   }, [score.onGreenFirstShot, gross, hole.par])
+
+  // Auto-suggest castigos based on score, without overriding a manual uncheck
+  useEffect(() => {
+    if (!bets.pinkies?.enabled) return
+    if (gross != null && gross >= 10 && !score.pinky) onChange('pinky', true)
+  }, [bets.pinkies?.enabled, gross])
+
+  useEffect(() => {
+    if (!bets.pinkies?.enabled) return
+    if ((score.putts ?? 0) >= 4 && !score.fourPutt) onChange('fourPutt', true)
+  }, [bets.pinkies?.enabled, score.putts])
 
   return (
     <div className="bg-surface border border-border rounded-xl p-4">
@@ -705,7 +745,7 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
       <div className="flex items-center justify-between mb-3">
         <div>
           <p className="text-white font-bold text-base">{player.name}</p>
-          <p className="text-gray-400 text-xs">HCP {player.handicap} · {strokes > 0 ? tr.strokes(strokes) : tr.reference}</p>
+          <p className="text-gray-400 text-xs">HCP {player.handicap} · {strokes > 0 ? tr.strokes(strokes, referenceName) : tr.reference}</p>
         </div>
         <div className="text-right">
           {gross != null && (
@@ -773,13 +813,19 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
                   <Chip active={score.whiff} onClick={() => onChange('whiff', !score.whiff)} label={tr.whiffChip} />
                 </>
               )}
+              {bets.pinkies?.enabled && (
+                <Chip active={activeCastigos.length > 0} onClick={() => setShowCastigos(true)} label="⚠️ Castigo" />
+              )}
             </div>
           )}
 
-          {units.length > 0 && (
+          {(units.length > 0 || activeCastigos.length > 0) && (
             <div className="flex flex-wrap gap-1 mt-0.5">
               {units.map(u => (
                 <span key={u} className="bg-gold/20 text-gold text-xs px-2 py-0.5 rounded-full font-semibold">{unitEmoji(u, tr)}</span>
+              ))}
+              {activeCastigos.map(c => (
+                <span key={c.key} className="bg-red-900/40 text-red-300 text-xs px-2 py-0.5 rounded-full font-semibold">{c.emoji} {c.label}</span>
               ))}
             </div>
           )}
@@ -791,6 +837,24 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
               ))}
             </div>
           )}
+
+          <Modal open={showCastigos} onClose={() => setShowCastigos(false)} title="Castigo">
+            <div className="flex flex-col gap-2">
+              {CASTIGOS.map(c => (
+                <button
+                  key={c.key}
+                  onClick={() => onChange(c.key, !score[c.key])}
+                  className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${score[c.key] ? 'border-gold bg-gold/10' : 'border-border'}`}
+                >
+                  <div>
+                    <p className={`font-semibold text-sm ${score[c.key] ? 'text-gold' : 'text-white'}`}>{c.emoji} {c.label}</p>
+                    <p className="text-gray-400 text-xs mt-0.5">{c.desc}</p>
+                  </div>
+                  <span className={`text-xl ${score[c.key] ? 'text-gold' : 'text-gray-600'}`}>{score[c.key] ? '✓' : ''}</span>
+                </button>
+              ))}
+            </div>
+          </Modal>
 
           {isMyCard && (
             <div className="flex items-center gap-2 pt-1">
@@ -814,6 +878,7 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
           {score.onGreenFirstShot && <span>🟢</span>}
           {units.map(u => <span key={u}>{unitEmoji(u, tr)}</span>)}
           {penalties.map(p => <span key={p}>{penaltyEmoji(p, tr)}</span>)}
+          {activeCastigos.map(c => <span key={c.key}>{c.emoji} {c.label}</span>)}
         </div>
       )}
     </div>

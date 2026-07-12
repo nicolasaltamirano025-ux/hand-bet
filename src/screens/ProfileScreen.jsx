@@ -2,7 +2,11 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { signOutUser } from '../firebase/auth'
-import { saveUserProfile, subscribeUserRounds } from '../firebase/userService'
+import { saveUserProfile, subscribeUserRounds, removeUserRound } from '../firebase/userService'
+import { deleteRound } from '../firebase/roundsService'
+import Modal from '../components/ui/Modal'
+import AvatarPicker from '../components/profile/AvatarPicker'
+import { AVATAR_ICONS } from '../components/profile/avatarIcons'
 
 export default function ProfileScreen() {
   const nav = useNavigate()
@@ -10,10 +14,18 @@ export default function ProfileScreen() {
   const [rounds, setRounds] = useState({})
   const [editingHcp, setEditingHcp] = useState(false)
   const [hcp, setHcp] = useState(18)
+  const [editingGhin, setEditingGhin] = useState(false)
+  const [ghin, setGhin] = useState('')
   const [saving, setSaving] = useState(false)
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
-    if (profile) setHcp(profile.defaultHandicap ?? 18)
+    if (profile) {
+      setHcp(profile.defaultHandicap ?? 18)
+      setGhin(profile.ghin || '')
+    }
   }, [profile])
 
   useEffect(() => {
@@ -26,13 +38,13 @@ export default function ProfileScreen() {
     return null
   }
 
-  const roundList = Object.entries(rounds)
-    .map(([code, r]) => ({ code, ...r }))
-    .sort((a, b) => b.ts - a.ts)
+  const allRounds = Object.entries(rounds).map(([code, r]) => ({ code, ...r }))
+  const activeRounds    = allRounds.filter(r => r.status === 'active').sort((a, b) => b.ts - a.ts)
+  const completedRounds = allRounds.filter(r => r.status !== 'active').sort((a, b) => b.ts - a.ts)
 
-  const totalNet = roundList.reduce((s, r) => s + (r.totalNet || 0), 0)
-  const won  = roundList.filter(r => r.totalNet > 0).length
-  const lost = roundList.filter(r => r.totalNet < 0).length
+  const totalNet = completedRounds.reduce((s, r) => s + (r.totalNet || 0), 0)
+  const won  = completedRounds.filter(r => r.totalNet > 0).length
+  const lost = completedRounds.filter(r => r.totalNet < 0).length
 
   async function saveHcp() {
     setSaving(true)
@@ -42,10 +54,33 @@ export default function ProfileScreen() {
     setEditingHcp(false)
   }
 
+  async function saveGhin() {
+    setSaving(true)
+    await saveUserProfile(user.uid, { ghin: ghin.trim() })
+    setProfile(p => ({ ...p, ghin: ghin.trim() }))
+    setSaving(false)
+    setEditingGhin(false)
+  }
+
   async function handleSignOut() {
     await signOutUser()
     nav('/')
   }
+
+  async function handleDeleteActiveRound() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try { await deleteRound(deleteTarget) } catch {}
+    await removeUserRound(user.uid, deleteTarget)
+    if (localStorage.getItem('hb_last_round') === deleteTarget) {
+      localStorage.removeItem('hb_last_round')
+    }
+    localStorage.removeItem(`hb_player_${deleteTarget}`)
+    setDeleting(false)
+    setDeleteTarget(null)
+  }
+
+  const avatarIcon = AVATAR_ICONS.find(a => a.id === profile?.avatarIcon)
 
   return (
     <div className="flex flex-col min-h-dvh bg-bg pb-10">
@@ -60,12 +95,21 @@ export default function ProfileScreen() {
 
       {/* Avatar + Name */}
       <div className="flex flex-col items-center gap-3 px-4 py-8">
-        {profile?.photoURL
-          ? <img src={profile.photoURL} referrerPolicy="no-referrer" alt="avatar" className="w-20 h-20 rounded-full border-2 border-gold object-cover" />
-          : <div className="w-20 h-20 rounded-full bg-surface border-2 border-gold flex items-center justify-center text-3xl text-gold font-bold">
-              {profile?.name?.[0]?.toUpperCase() || '?'}
-            </div>
-        }
+        <button onClick={() => setShowAvatarPicker(true)} className="relative">
+          {avatarIcon
+            ? <div className={`w-20 h-20 rounded-full border-2 border-gold flex items-center justify-center text-4xl ${avatarIcon.bg}`}>
+                {avatarIcon.emoji}
+              </div>
+            : profile?.photoURL
+              ? <img src={profile.photoURL} referrerPolicy="no-referrer" alt="avatar" className="w-20 h-20 rounded-full border-2 border-gold object-cover" />
+              : <div className="w-20 h-20 rounded-full bg-surface border-2 border-gold flex items-center justify-center text-3xl text-gold font-bold">
+                  {profile?.name?.[0]?.toUpperCase() || '?'}
+                </div>
+          }
+          <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-gold flex items-center justify-center text-bg text-sm border-2 border-bg">
+            ✎
+          </div>
+        </button>
         <p className="text-white text-xl font-bold">{profile?.name}</p>
         <p className="text-gray-400 text-sm">{profile?.email}</p>
       </div>
@@ -100,11 +144,41 @@ export default function ProfileScreen() {
         </div>
       </div>
 
+      {/* GHIN */}
+      <div className="px-4 mb-6">
+        <div className="bg-surface border border-border rounded-xl px-4 py-3 flex items-center justify-between">
+          <div>
+            <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Número GHIN</p>
+            {editingGhin
+              ? <input
+                  type="text"
+                  value={ghin}
+                  onChange={e => setGhin(e.target.value)}
+                  placeholder="Ej. 1234567"
+                  className="bg-bg border border-gold rounded-lg px-3 py-1 text-white text-lg font-bold w-32 outline-none"
+                />
+              : <p className="text-white text-lg font-black">{profile?.ghin || '—'}</p>
+            }
+          </div>
+          {editingGhin
+            ? <button
+                onClick={saveGhin}
+                disabled={saving}
+                className="bg-gold text-bg rounded-lg px-4 py-2 font-bold text-sm disabled:opacity-60"
+              >{saving ? '...' : 'Guardar'}</button>
+            : <button
+                onClick={() => setEditingGhin(true)}
+                className="text-gold text-sm font-semibold border border-gold/40 rounded-lg px-4 py-2"
+              >Editar</button>
+          }
+        </div>
+      </div>
+
       {/* Stats */}
       <div className="px-4 mb-6">
         <p className="text-gray-400 text-xs uppercase tracking-widest mb-3">Estadísticas</p>
         <div className="grid grid-cols-3 gap-3 mb-3">
-          <StatCard label="Rondas" value={roundList.length} />
+          <StatCard label="Rondas" value={completedRounds.length} />
           <StatCard label="Ganadas" value={won} color="text-green-400" />
           <StatCard label="Perdidas" value={lost} color="text-red-400" />
         </div>
@@ -116,12 +190,42 @@ export default function ProfileScreen() {
         </div>
       </div>
 
+      {/* Active rounds */}
+      {activeRounds.length > 0 && (
+        <div className="px-4 mb-6">
+          <p className="text-gray-400 text-xs uppercase tracking-widest mb-3">En progreso</p>
+          <div className="flex flex-col gap-2">
+            {activeRounds.map(r => (
+              <div
+                key={r.code}
+                className="bg-surface border border-gold/40 rounded-xl px-4 py-3 flex items-center gap-2"
+              >
+                <button
+                  onClick={() => nav(`/round/${r.code}`)}
+                  className="flex-1 text-left active:opacity-70 transition-opacity"
+                >
+                  <p className="text-white font-semibold text-sm">{r.field || 'Ronda'}</p>
+                  <p className="text-gray-500 text-xs mt-0.5">#{r.code}</p>
+                </button>
+                <button
+                  onClick={() => setDeleteTarget(r.code)}
+                  aria-label="Eliminar ronda"
+                  className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg text-gray-400 active:bg-border"
+                >
+                  🗑️
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Round history */}
-      {roundList.length > 0 && (
+      {completedRounds.length > 0 && (
         <div className="px-4">
           <p className="text-gray-400 text-xs uppercase tracking-widest mb-3">Historial</p>
           <div className="flex flex-col gap-2">
-            {roundList.map(r => (
+            {completedRounds.map(r => (
               <button
                 key={r.code}
                 onClick={() => nav(`/round/${r.code}/final`)}
@@ -143,12 +247,43 @@ export default function ProfileScreen() {
         </div>
       )}
 
-      {roundList.length === 0 && (
+      {activeRounds.length === 0 && completedRounds.length === 0 && (
         <div className="px-4 text-center text-gray-500 py-8">
           <p className="text-4xl mb-3">⛳</p>
           <p className="text-sm">Tus rondas aparecerán aquí</p>
         </div>
       )}
+
+      {showAvatarPicker && (
+        <AvatarPicker
+          current={profile?.avatarIcon}
+          onSelect={async (iconId) => {
+            await saveUserProfile(user.uid, { avatarIcon: iconId })
+            setProfile(p => ({ ...p, avatarIcon: iconId }))
+            setShowAvatarPicker(false)
+          }}
+          onClose={() => setShowAvatarPicker(false)}
+        />
+      )}
+
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="¿Eliminar ronda?">
+        <p className="text-gray-300 text-sm mb-5">Esta ronda sin completar se borrará para todos los jugadores. No se puede deshacer.</p>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setDeleteTarget(null)}
+            className="flex-1 py-3 rounded-xl border border-border text-gray-300 font-semibold"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleDeleteActiveRound}
+            disabled={deleting}
+            className="flex-1 py-3 rounded-xl bg-red-600 text-white font-semibold disabled:opacity-60"
+          >
+            {deleting ? '...' : 'Eliminar'}
+          </button>
+        </div>
+      </Modal>
     </div>
   )
 }

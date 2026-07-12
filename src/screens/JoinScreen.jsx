@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getRound } from '../firebase/roundsService'
+import { recordActiveRound } from '../firebase/userService'
+import { useAuth } from '../contexts/AuthContext'
 import Button from '../components/ui/Button'
 import { useLanguage } from '../i18n'
 
@@ -8,6 +10,7 @@ export default function JoinScreen() {
   const nav = useNavigate()
   const [searchParams] = useSearchParams()
   const { tr } = useLanguage()
+  const { user } = useAuth()
   const [code, setCode] = useState(() => searchParams.get('code') || '')
   const [round, setRound] = useState(null)
   const [error, setError] = useState('')
@@ -38,6 +41,9 @@ export default function JoinScreen() {
   function handleJoin() {
     if (!selectedPlayer) return
     localStorage.setItem(`hb_player_${code}`, selectedPlayer)
+    if (user) {
+      recordActiveRound(user.uid, code, { field: round.field?.name, roundType: round.roundType })
+    }
     nav(`/round/${code}`)
   }
 

@@ -59,6 +59,13 @@ export default function GameScreen() {
     }
   }, [])
 
+  // Bug A: redirect players who never went through JoinScreen
+  useEffect(() => {
+    if (!loading && round && (!localPlayerId || !round.players?.[localPlayerId])) {
+      nav(`/join?code=${code}`, { replace: true })
+    }
+  }, [loading, round])
+
   const holes = useMemo(() => {
     if (!round?.holes) return []
     const all = Object.values(round.holes)
@@ -103,7 +110,7 @@ export default function GameScreen() {
         : { ...official }
     }
     setPendingScore(existing)
-  }, [currentHoleIdx, round?.holes])
+  }, [currentHoleIdx])
 
   // Mark the existing celebration ts as "already seen" on first load to avoid replaying old events
   useEffect(() => {
@@ -135,6 +142,7 @@ export default function GameScreen() {
   }, [round?.celebration?.ts, tr])
 
   if (loading || !round) return <Loading />
+  if (!localPlayerId || !round.players?.[localPlayerId]) return <Loading />
   if (!currentHole) return <div className="text-white p-8">{tr.roundCompleted}</div>
 
   const manoState = round.manoState || {}
@@ -259,6 +267,8 @@ export default function GameScreen() {
   }
 
   function navigate() {
+    const editHoleN = parseInt(searchParams.get('editHole') || '0')
+    if (editHoleN) { nav(`/round/${code}/admin`); return }
     if (currentHoleIdx < holes.length - 1) setCurrentHoleIdx(i => i + 1)
     else nav(`/round/${code}/final`)
   }
@@ -359,7 +369,7 @@ export default function GameScreen() {
           }
         }
 
-        updates['manoState'] = mState
+        if (newManoEvents.length > prevManoEvents.length) updates['manoState'] = mState
         updates['manoEvents'] = [...newManoEvents, ...manoEventsAfter]
       }
     }
@@ -399,7 +409,7 @@ export default function GameScreen() {
         }
       }
 
-      updates['oyesState'] = oyesSt
+      if (newOyesEvents.length > prevOyesEvents.length) updates['oyesState'] = oyesSt
       updates['oyesEvents'] = [...newOyesEvents, ...oyesEventsAfter]
     }
 

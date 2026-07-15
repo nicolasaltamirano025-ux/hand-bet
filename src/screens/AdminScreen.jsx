@@ -443,7 +443,7 @@ function SmallNumInput({ value, min, max, onChange }) {
   )
 }
 
-function CourseEditor({ holes, code }) {
+function CourseEditor({ holes, code, fieldHoles, startingHole }) {
   const [localHoles, setLocalHoles] = useState(holes.map(h => ({ n: h.n, par: h.par, si: h.si })))
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -451,6 +451,19 @@ function CourseEditor({ holes, code }) {
   useEffect(() => {
     setLocalHoles(holes.map(h => ({ n: h.n, par: h.par, si: h.si })))
   }, [holes.length])
+
+  function handleResetSI() {
+    if (!fieldHoles?.length) return
+    const byN = {}
+    for (const fh of fieldHoles) byN[fh.n] = fh
+    setLocalHoles(prev => prev.map(h => {
+      const orig = byN[h.n]
+      if (!orig) return h
+      const si = startingHole === 10 && orig.si10 != null ? orig.si10 : orig.si
+      return { ...h, si }
+    }))
+    setSaved(false)
+  }
 
   function setField(n, field, val) {
     setLocalHoles(prev => prev.map(h => h.n === n ? { ...h, [field]: val } : h))
@@ -487,9 +500,71 @@ function CourseEditor({ holes, code }) {
           </div>
         </div>
       ))}
+      {fieldHoles?.length > 0 && (
+        <button
+          onClick={handleResetSI}
+          className="text-gold text-xs border border-gold/40 rounded-lg px-3 py-2 active:bg-gold/10 w-full text-center"
+        >
+          🔄 Restablecer SI desde campo original
+          {startingHole === 10 && <span className="text-gray-400 ml-1">(saliendo H10)</span>}
+        </button>
+      )}
       <div className="flex items-center gap-3 pt-2 border-t border-border/40">
         <Button onClick={handleSave} disabled={saving} className="flex-1">
           {saving ? 'Guardando…' : 'Guardar campo'}
+        </Button>
+        <SaveFeedback saved={saved} />
+      </div>
+    </div>
+  )
+}
+
+// ─── Players Editor ──────────────────────────────────────────────────────────
+
+function PlayersEditor({ players, playerIds, code }) {
+  const [localPlayers, setLocalPlayers] = useState(
+    playerIds.map(id => ({ id, handicap: players[id]?.handicap ?? 0 }))
+  )
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    setLocalPlayers(playerIds.map(id => ({ id, handicap: players[id]?.handicap ?? 0 })))
+  }, [JSON.stringify(playerIds.map(id => players[id]?.handicap))])
+
+  async function handleSave() {
+    setSaving(true)
+    const updates = {}
+    for (const p of localPlayers) {
+      updates[`players/${p.id}/handicap`] = p.handicap
+    }
+    await updateRoundDeep(code, updates)
+    setSaving(false)
+    setSaved(true)
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {localPlayers.map((p, i) => (
+        <div key={p.id} className="flex items-center gap-3">
+          <span className="text-white text-sm flex-1 truncate">{players[p.id]?.name}</span>
+          <div className="w-32">
+            <NumberInput
+              value={p.handicap}
+              min={0}
+              max={54}
+              prefix="HCP"
+              onChange={v => {
+                setLocalPlayers(prev => prev.map((lp, j) => j === i ? { ...lp, handicap: v } : lp))
+                setSaved(false)
+              }}
+            />
+          </div>
+        </div>
+      ))}
+      <div className="flex items-center gap-3 pt-2 border-t border-border/40">
+        <Button onClick={handleSave} disabled={saving} className="flex-1">
+          {saving ? 'Guardando…' : 'Guardar handicaps'}
         </Button>
         <SaveFeedback saved={saved} />
       </div>
@@ -567,16 +642,30 @@ export default function AdminScreen() {
           />
         </AdminSection>
 
-        {/* Section 3: Course config */}
+        {/* Section 3: Players / handicaps */}
+        <AdminSection
+          emoji="👤"
+          title="Handicaps de jugadores"
+          description="Corrige el handicap de cualquier jugador. Aplica inmediatamente al cálculo de ventajas en La Mano y Medals."
+        >
+          <PlayersEditor players={players} playerIds={playerIds} code={code} />
+        </AdminSection>
+
+        {/* Section 4: Course config */}
         <AdminSection
           emoji="🗺️"
           title="Configuración del campo"
           description="Corrige el par o la ventaja (SI) de cualquier hoyo. Aplica inmediatamente al cálculo de handicaps, unidades y medals."
         >
-          <CourseEditor holes={holes} code={code} />
+          <CourseEditor
+            holes={holes}
+            code={code}
+            fieldHoles={round.field?.holes}
+            startingHole={round.startingHole}
+          />
         </AdminSection>
 
-        {/* Section 4: State override */}
+        {/* Section 5: State override */}
         <AdminSection
           emoji="🔧"
           title="Estado del juego"

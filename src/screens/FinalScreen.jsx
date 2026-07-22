@@ -76,70 +76,78 @@ export default function FinalScreen() {
   }
 
   return (
-    <div className="flex flex-col min-h-dvh bg-bg" style={{ paddingBottom: 'calc(max(16px, env(safe-area-inset-bottom)) + 80px)' }}>
+    <div className="flex flex-col bg-bg" style={{ height: '100dvh' }}>
+      {/* Header — shrinks to fit, never scrolls away */}
       <div
-        className="sticky top-0 bg-bg border-b border-border px-4 py-4 flex items-center gap-4"
+        className="shrink-0 bg-bg border-b border-border px-4 py-4 flex items-center gap-4"
         style={{ paddingTop: 'max(16px, env(safe-area-inset-top))' }}
       >
         <button onClick={() => nav(-1)} className="text-gray-400 text-sm">{tr.back}</button>
         <h2 className="text-white font-bold text-xl flex-1 text-center">{tr.finalResult}</h2>
       </div>
 
-      <div className="flex justify-center py-6">
-        <img src="/hand-bet.png" alt="Hand Bet" className="w-20 h-20 rounded-2xl" />
-      </div>
-
-      <div className="px-4 mb-6">
-        <h3 className="text-gray-400 text-xs uppercase tracking-widest mb-3">{tr.balancePerPlayer}</h3>
-        <div className="flex flex-col gap-2">
-          {[...playerIds].sort((a, b) => (ledger[b] || 0) - (ledger[a] || 0)).map((id, i) => {
-            const bal = ledger?.[id] || 0
-            const medals = ['🏆', '🥈', '🥉']
-            return (
-              <div key={id} className={`border rounded-xl px-4 py-3 flex justify-between items-center ${i === 0 && bal > 0 ? 'bg-gold/10 border-gold/40' : 'bg-surface border-border'}`}>
-                <span className="text-white font-semibold text-lg">
-                  {medals[i] ? <span className="mr-2">{medals[i]}</span> : null}
-                  {players[id].name}
-                </span>
-                <span className={`font-black text-2xl ${bal > 0 ? 'text-green-400' : bal < 0 ? 'text-red-400' : 'text-gray-400'}`}>
-                  {bal > 0 ? '+' : ''}{fmt(bal)}
-                </span>
-              </div>
-            )
-          })}
+      {/* Scrollable content — independent scroll, bar can never overlap it */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="flex justify-center py-6">
+          <img src="/hand-bet.png" alt="Hand Bet" className="w-20 h-20 rounded-2xl" />
         </div>
-      </div>
 
-      {debts.length > 0 && (
         <div className="px-4 mb-6">
-          <h3 className="text-gray-400 text-xs uppercase tracking-widest mb-3">{tr.whoPayWhom}</h3>
+          <h3 className="text-gray-400 text-xs uppercase tracking-widest mb-3">{tr.balancePerPlayer}</h3>
           <div className="flex flex-col gap-2">
-            {debts.map((d, i) => (
-              <div key={i} className="bg-surface border border-gold/30 rounded-xl px-4 py-5 flex items-center justify-between">
-                <div>
-                  <span className="text-red-400 font-bold text-lg">{d.fromName}</span>
-                  <span className="text-gray-400 mx-2 text-lg">→</span>
-                  <span className="text-green-400 font-bold text-lg">{d.toName}</span>
+            {[...playerIds].sort((a, b) => (ledger[b] || 0) - (ledger[a] || 0)).map((id, i) => {
+              const bal = ledger?.[id] || 0
+              const medals = ['🏆', '🥈', '🥉']
+              return (
+                <div key={id} className={`border rounded-xl px-4 py-3 flex justify-between items-center ${i === 0 && bal > 0 ? 'bg-gold/10 border-gold/40' : 'bg-surface border-border'}`}>
+                  <span className="text-white font-semibold text-lg">
+                    {medals[i] ? <span className="mr-2">{medals[i]}</span> : null}
+                    {players[id].name}
+                  </span>
+                  <span className={`font-black text-2xl ${bal > 0 ? 'text-green-400' : bal < 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                    {bal > 0 ? '+' : ''}{fmt(bal)}
+                  </span>
                 </div>
-                <span className="text-gold font-black text-2xl">{fmt(d.amount)}</span>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
-      )}
 
-      {debts.length === 0 && items.length === 0 && (
-        <div className="px-4 text-center text-gray-400 py-8">
-          <p className="text-4xl mb-3">🏌️</p>
-          <p>{tr.noBetsYet}</p>
-        </div>
-      )}
+        {debts.length > 0 && (
+          <div className="px-4 mb-6">
+            <h3 className="text-gray-400 text-xs uppercase tracking-widest mb-3">{tr.whoPayWhom}</h3>
+            <div className="flex flex-col gap-2">
+              {debts.map((d, i) => (
+                <div key={i} className="bg-surface border border-gold/30 rounded-xl px-4 py-5 flex items-center justify-between">
+                  <div>
+                    <span className="text-red-400 font-bold text-lg">{d.fromName}</span>
+                    <span className="text-gray-400 mx-2 text-lg">→</span>
+                    <span className="text-green-400 font-bold text-lg">{d.toName}</span>
+                  </div>
+                  <span className="text-gold font-black text-2xl">{fmt(d.amount)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-      {items.length > 0 && (
-        <BetBreakdown items={items} players={players} />
-      )}
+        {debts.length === 0 && items.length === 0 && (
+          <div className="px-4 text-center text-gray-400 py-8">
+            <p className="text-4xl mb-3">🏌️</p>
+            <p>{tr.noBetsYet}</p>
+          </div>
+        )}
 
-      <div className="fixed bottom-0 left-0 right-0 bg-bg border-t border-border p-4 flex gap-2" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
+        {items.length > 0 && (
+          <BetBreakdown items={items} players={players} />
+        )}
+      </div>
+
+      {/* Bottom bar — part of the layout, never overlaps scrollable content */}
+      <div
+        className="shrink-0 bg-bg border-t border-border p-4 flex gap-2"
+        style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}
+      >
         <button
           onClick={() => nav('/')}
           className="flex-shrink-0 px-5 rounded-xl border border-border text-white font-semibold active:bg-surface"

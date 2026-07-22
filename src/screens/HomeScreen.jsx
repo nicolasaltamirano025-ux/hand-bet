@@ -77,6 +77,8 @@ export default function HomeScreen() {
       </div>
 
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
+
+      <p className="absolute bottom-3 text-gray-600 text-xs" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>V1.7</p>
     </div>
   )
 }

@@ -19,13 +19,13 @@ export function computeSettlement(round) {
 
   const items = []
 
-  function pay(fromIds, toIds, amount, label, type = null) {
+  function pay(fromIds, toIds, amount, label, type = null, units = 1, meta = null) {
     if (!fromIds.length || !toIds.length || amount === 0) return
     const perFrom = amount / fromIds.length
     const perTo   = amount / toIds.length
     for (const from of fromIds) ledger[from] -= perFrom
     for (const to of toIds)     ledger[to]   += perTo
-    items.push({ label, amount, from: fromIds, to: toIds, type })
+    items.push({ label, amount, from: fromIds, to: toIds, type, units, meta })
   }
 
   // ── LA MANO ────────────────────────────────────────────────────────────────
@@ -35,11 +35,11 @@ export function computeSettlement(round) {
     for (const ev of manoEvents) {
       if (ev.type === 'mano_win') {
         const losers = playerIds.filter(id => id !== ev.winnerId)
-        pay(losers, [ev.winnerId], ev.units * val * losers.length, `Mano hoyo ${ev.holeNum} (${ev.units} hoyos)`, 'mano')
+        pay(losers, [ev.winnerId], ev.units * val * losers.length, `Mano hoyo ${ev.holeNum} (${ev.units} hoyos)`, 'mano', ev.units)
       }
       if (ev.type === 'hole_win') {
         const losers = playerIds.filter(id => id !== ev.winnerId)
-        pay(losers, [ev.winnerId], val * losers.length, `Hoyo ${ev.holeNum}`, 'mano')
+        pay(losers, [ev.winnerId], val * losers.length, `Hoyo ${ev.holeNum}`, 'mano', 1)
       }
       if (ev.type === 'salvamento') {
         const payers = playerIds.filter(id => id !== ev.receiverId && id !== ev.manoHolderId)
@@ -87,9 +87,17 @@ export function computeSettlement(round) {
       if (!completeness[cat]) continue
       const val = medalValues[cat]
       if (!val) continue
-      const winners = result.winners
-      const losers  = playerIds.filter(id => !winners.includes(id))
-      pay(losers, winners, val * losers.length, medalNames[cat], 'medals')
+      const winners   = result.winners
+      const losers    = playerIds.filter(id => !winners.includes(id))
+      const catTotals = result.totals || {}
+      const scores    = Object.values(catTotals)
+      const minScore  = scores.length ? Math.min(...scores) : 0
+      const tiedPlayers = Object.keys(catTotals).filter(id => catTotals[id] === minScore)
+      pay(losers, winners, val * losers.length, medalNames[cat], 'medals', 1, {
+        netScores: catTotals,
+        hadScoreTie: tiedPlayers.length > 1,
+        tiedPlayers,
+      })
     }
   }
 

@@ -202,9 +202,10 @@ function getPlayerGroups(type, typeItems) {
   for (const item of typeItems) {
     const side = PAYER_TYPES.has(type) ? (item.from || []) : (item.to || [])
     for (const pid of side) {
-      if (!byPlayer[pid]) byPlayer[pid] = { items: [], amount: 0 }
+      if (!byPlayer[pid]) byPlayer[pid] = { items: [], amount: 0, holeCount: 0 }
       byPlayer[pid].items.push({ ...item, playerShare: item.amount / (side.length || 1) })
-      byPlayer[pid].amount += item.amount / (side.length || 1)
+      byPlayer[pid].amount    += item.amount / (side.length || 1)
+      byPlayer[pid].holeCount += item.units || 1
     }
   }
   return byPlayer
@@ -291,16 +292,21 @@ function BetBreakdown({ items, players }) {
                             className="w-full flex items-center gap-2 px-4 py-3 text-left active:bg-border/20"
                           >
                             <span className="text-white font-semibold text-sm flex-1">{players[pid]?.name}</span>
-                            <span className="text-gray-400 text-xs">{playerEventLabel(type, data.items.length)}</span>
+                            <span className="text-gray-400 text-xs">{playerEventLabel(type, type === 'mano' ? data.holeCount : data.items.length)}</span>
                             <span className="text-gold font-semibold text-sm ml-2">{fmt(data.amount)}</span>
                             <span className="text-gray-500 text-xs ml-1">{isPlayerOpen ? '▲' : '▼'}</span>
                           </button>
                           {isPlayerOpen && (
                             <div className="bg-black/20 border-t border-border/30">
                               {data.items.map((item, i) => (
-                                <div key={i} className="px-5 py-2.5 border-b border-border/20 last:border-0 flex justify-between items-center gap-3">
-                                  <p className="text-gray-300 text-xs flex-1">{item.label}</p>
-                                  <span className="text-gray-400 text-xs shrink-0">{fmt(item.playerShare)}</span>
+                                <div key={i} className="px-5 py-2.5 border-b border-border/20 last:border-0">
+                                  <div className="flex justify-between items-center gap-3">
+                                    <p className="text-gray-300 text-xs flex-1">{item.label}</p>
+                                    <span className="text-gray-400 text-xs shrink-0">{fmt(item.playerShare)}</span>
+                                  </div>
+                                  {type === 'medals' && item.meta?.netScores && (
+                                    <MedalDetail meta={item.meta} players={players} />
+                                  )}
                                 </div>
                               ))}
                             </div>
@@ -314,6 +320,27 @@ function BetBreakdown({ items, players }) {
             </div>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+function MedalDetail({ meta, players }) {
+  const { netScores, hadScoreTie, tiedPlayers } = meta
+  const sorted = Object.entries(netScores || {}).sort(([, a], [, b]) => a - b)
+  return (
+    <div className="mt-1.5">
+      {hadScoreTie && tiedPlayers?.length > 0 && (
+        <p className="text-yellow-400/80 text-[10px] mb-1">
+          Empate en {netScores[tiedPlayers[0]]} neto — gana por menor handicap
+        </p>
+      )}
+      <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+        {sorted.map(([id, score]) => (
+          <span key={id} className={`text-[10px] ${hadScoreTie && tiedPlayers?.includes(id) ? 'text-yellow-400/70' : 'text-gray-500'}`}>
+            {players[id]?.name}: {score} neto
+          </span>
+        ))}
       </div>
     </div>
   )

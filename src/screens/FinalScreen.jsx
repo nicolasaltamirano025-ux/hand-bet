@@ -76,7 +76,7 @@ export default function FinalScreen() {
   }
 
   return (
-    <div className="flex flex-col min-h-dvh bg-bg pb-24">
+    <div className="flex flex-col min-h-dvh bg-bg" style={{ paddingBottom: 'calc(max(16px, env(safe-area-inset-bottom)) + 80px)' }}>
       <div
         className="sticky top-0 bg-bg border-b border-border px-4 py-4 flex items-center gap-4"
         style={{ paddingTop: 'max(16px, env(safe-area-inset-top))' }}
@@ -167,7 +167,7 @@ const TYPE_META = {
   oyes:      { emoji: '📍', label: "O'yes",      explain: (item, players) => `${item.to.map(id => players[id]?.name).join(' y ')} llegó al green de primer tiro y hizo par` },
   medals:    { emoji: '🥇', label: 'Medals',     explain: (item, players) => `${item.to.map(id => players[id]?.name).join(' y ')} tuvo el menor score neto acumulado` },
   drives:    { emoji: '💨', label: 'Drives',     explain: (item, players) => `${item.to.map(id => players[id]?.name).join(' y ')} ganó el drive más largo` },
-  putts:     { emoji: '⛳', label: 'Putts',      explain: (item, players) => `${item.to.map(id => players[id]?.name).join(' y ')} tuvo la menor cantidad de putts` },
+  putts:     { emoji: '⛳', label: 'Putts',      explain: (item, players) => `${item.to.map(id => players[id]?.name).join(' y ')} tuvo la mayor cantidad de putts` },
   units:     { emoji: '🏆', label: 'Unidades',   explain: (item, players) => item.label.replace(' — ', ': ') },
   pinkies:   { emoji: '🤙', label: 'Pinkies',    explain: (item, players) => `Pinky marcado a ${item.from.map(id => players[id]?.name).join(' y ')}` },
   penalties: { emoji: '💀', label: 'Penalidades', explain: (item, players) => item.label.replace(' — ', ': ') },

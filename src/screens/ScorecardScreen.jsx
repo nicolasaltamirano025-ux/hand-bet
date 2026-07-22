@@ -52,60 +52,46 @@ export default function ScorecardScreen() {
 
   const front = holes.filter(h => h.n <= 9)
   const back  = holes.filter(h => h.n >= 10)
+  const hasBoth = front.length > 0 && back.length > 0
 
-  // Hole wins per player (for circle decoration)
-  const holeWinnerMap = {}  // { holeNum: playerId }
+  const holeWinnerMap = {}
   for (const ev of (round.manoEvents || [])) {
     if (ev.type === 'mano_win' || ev.type === 'hole_win') {
       holeWinnerMap[ev.holeNum] = ev.winnerId
     }
   }
 
-  // Unit achievements per player per hole (for asterisk)
-  const unitMap = {}  // { `${holeNum}_${playerId}`: true }
+  const unitMap = {}
   for (const ev of (round.unitsEvents || [])) {
     if (ev.units?.length > 0) unitMap[`${ev.holeNum}_${ev.playerId}`] = true
   }
 
-  // Penalty achievements per player per hole (for red mark)
-  const penaltyMap = {}  // { `${holeNum}_${playerId}`: true }
+  const penaltyMap = {}
   for (const ev of (round.penaltiesEvents || [])) {
     if (ev.penalties?.length > 0) penaltyMap[`${ev.holeNum}_${ev.playerId}`] = true
   }
 
-  return (
-    <div className="flex flex-col min-h-dvh bg-bg">
-      <div
-        className="sticky top-0 bg-bg border-b border-border px-4 py-4 flex items-center gap-4 z-10"
-        style={{ paddingTop: 'max(16px, env(safe-area-inset-top))' }}
-      >
-        <button onClick={() => nav(-1)} className="text-gray-400 text-sm">{tr.back}</button>
-        <h2 className="text-white font-bold text-lg flex-1 text-center">Scorecard</h2>
-        <span className="text-gold font-bold text-lg">{code}</span>
-        <button onClick={() => nav('/')} className="text-xs text-gray-400 border border-border rounded-lg px-2.5 py-1.5">🏠</button>
-      </div>
-
-      <div className="overflow-x-auto flex-1">
+  function renderTable(sectionHoles, secTotLabel, showGrandTot) {
+    return (
+      <div className="overflow-x-auto">
         <table className="min-w-full text-sm border-collapse">
           <thead>
             <tr className="bg-surface border-b border-border">
               <th className="sticky left-0 bg-surface px-3 py-3 text-gray-400 text-left font-semibold min-w-[90px] text-sm">{tr.hole}</th>
-              {holes.map(h => (
+              {sectionHoles.map(h => (
                 <th key={h.n} className="px-2 py-3 text-gray-400 font-semibold min-w-[52px] text-center text-sm">
                   {h.n}
                   {Object.values(round.holes?.[h.n]?.reviews || {}).some(r => r.status === 'pending') && <span className="ml-0.5">🚩</span>}
                 </th>
               ))}
-              {front.length > 0 && <th className="px-2 py-3 text-gold font-bold min-w-[52px] text-center text-sm">F9</th>}
-              {back.length  > 0 && <th className="px-2 py-3 text-gold font-bold min-w-[52px] text-center text-sm">B9</th>}
-              <th className="px-2 py-3 text-gold font-bold min-w-[52px] text-center text-sm">TOT</th>
+              <th className="px-2 py-3 text-gold font-bold min-w-[52px] text-center text-sm">{secTotLabel}</th>
+              {showGrandTot && <th className="px-2 py-3 text-gold font-bold min-w-[52px] text-center text-sm">TOT</th>}
             </tr>
             <tr className="bg-surface border-b border-border">
               <th className="sticky left-0 bg-surface px-3 py-1.5 text-gray-500 text-left text-xs">Par</th>
-              {holes.map(h => <td key={h.n} className="px-2 py-1.5 text-center text-gray-500 text-xs">{h.par}</td>)}
-              {front.length > 0 && <td className="px-2 py-1.5 text-center text-gray-500 text-xs">{front.reduce((s, h) => s + h.par, 0)}</td>}
-              {back.length  > 0 && <td className="px-2 py-1.5 text-center text-gray-500 text-xs">{back.reduce((s, h) => s + h.par, 0)}</td>}
-              <td className="px-2 py-1.5 text-center text-gray-500 text-xs">{holes.reduce((s, h) => s + h.par, 0)}</td>
+              {sectionHoles.map(h => <td key={h.n} className="px-2 py-1.5 text-center text-gray-500 text-xs">{h.par}</td>)}
+              <td className="px-2 py-1.5 text-center text-gray-500 text-xs">{sectionHoles.reduce((s, h) => s + h.par, 0)}</td>
+              {showGrandTot && <td className="px-2 py-1.5 text-center text-gray-500 text-xs">{holes.reduce((s, h) => s + h.par, 0)}</td>}
             </tr>
           </thead>
           <tbody>
@@ -113,7 +99,7 @@ export default function ScorecardScreen() {
               <>
                 <tr key={`${id}-g`} className="border-b border-border/30">
                   <td className="sticky left-0 bg-bg px-3 py-2.5 font-semibold text-white text-sm">{players[id].name}</td>
-                  {holes.map(h => {
+                  {sectionHoles.map(h => {
                     const g = round.holes?.[h.n]?.scores?.[id]?.gross
                     const diff = g != null ? g - h.par : null
                     const wonHole = holeWinnerMap[h.n] === id
@@ -134,30 +120,27 @@ export default function ScorecardScreen() {
                       </td>
                     )
                   })}
-                  {front.length > 0 && <td className="px-2 py-2.5 text-center text-gold font-bold text-sm">{totalGross(id, front) || '·'}</td>}
-                  {back.length  > 0 && <td className="px-2 py-2.5 text-center text-gold font-bold text-sm">{totalGross(id, back) || '·'}</td>}
-                  <td className="px-2 py-2.5 text-center text-gold font-bold text-sm">{totalGross(id, holes) || '·'}</td>
+                  <td className="px-2 py-2.5 text-center text-gold font-bold text-sm">{totalGross(id, sectionHoles) || '·'}</td>
+                  {showGrandTot && <td className="px-2 py-2.5 text-center text-gold font-bold text-sm">{totalGross(id, holes) || '·'}</td>}
                 </tr>
                 <tr key={`${id}-n`} className="border-b border-border/30">
                   <td className="sticky left-0 bg-bg px-3 py-1.5 text-gray-400 text-xs">{tr.net}</td>
-                  {holes.map(h => {
+                  {sectionHoles.map(h => {
                     const n = net(id, h)
                     return <td key={h.n} className="px-2 py-1.5 text-center text-gray-400 text-xs">{n ?? '·'}</td>
                   })}
-                  {front.length > 0 && <td className="px-2 py-1.5 text-center text-gray-400 text-xs">{totalNet(id, front) || '·'}</td>}
-                  {back.length  > 0 && <td className="px-2 py-1.5 text-center text-gray-400 text-xs">{totalNet(id, back) || '·'}</td>}
-                  <td className="px-2 py-1.5 text-center text-gray-400 text-xs">{totalNet(id, holes) || '·'}</td>
+                  <td className="px-2 py-1.5 text-center text-gray-400 text-xs">{totalNet(id, sectionHoles) || '·'}</td>
+                  {showGrandTot && <td className="px-2 py-1.5 text-center text-gray-400 text-xs">{totalNet(id, holes) || '·'}</td>}
                 </tr>
                 {round.bets?.putts?.enabled && (
                   <tr key={`${id}-p`} className="border-b border-border">
                     <td className="sticky left-0 bg-bg px-3 py-1.5 text-blue-400/70 text-xs">{tr.putts.toLowerCase()}</td>
-                    {holes.map(h => {
+                    {sectionHoles.map(h => {
                       const p = putts(id, h)
                       return <td key={h.n} className="px-2 py-1.5 text-center text-blue-400/70 text-xs">{p ?? '·'}</td>
                     })}
-                    {front.length > 0 && <td className="px-2 py-1.5 text-center text-blue-400/70 text-xs">{totalPutts(id, front) || '·'}</td>}
-                    {back.length  > 0 && <td className="px-2 py-1.5 text-center text-blue-400/70 text-xs">{totalPutts(id, back) || '·'}</td>}
-                    <td className="px-2 py-1.5 text-center text-blue-400 text-xs font-semibold">{totalPutts(id, holes) || '·'}</td>
+                    <td className="px-2 py-1.5 text-center text-blue-400/70 text-xs">{totalPutts(id, sectionHoles) || '·'}</td>
+                    {showGrandTot && <td className="px-2 py-1.5 text-center text-blue-400 text-xs font-semibold">{totalPutts(id, holes) || '·'}</td>}
                   </tr>
                 )}
               </>
@@ -165,6 +148,36 @@ export default function ScorecardScreen() {
           </tbody>
         </table>
       </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col min-h-dvh bg-bg">
+      <div
+        className="sticky top-0 bg-bg border-b border-border px-4 py-4 flex items-center gap-4 z-10"
+        style={{ paddingTop: 'max(16px, env(safe-area-inset-top))' }}
+      >
+        <button onClick={() => nav(-1)} className="text-gray-400 text-sm">{tr.back}</button>
+        <h2 className="text-white font-bold text-lg flex-1 text-center">Scorecard</h2>
+        <span className="text-gold font-bold text-lg">{code}</span>
+        <button onClick={() => nav('/')} className="text-xs text-gray-400 border border-border rounded-lg px-2.5 py-1.5">🏠</button>
+      </div>
+
+      {front.length > 0 && (
+        <div>
+          {hasBoth && <p className="px-4 pt-4 pb-2 text-gold font-bold text-xs uppercase tracking-widest">Front 9</p>}
+          {renderTable(front, hasBoth ? 'F9' : 'TOT', false)}
+        </div>
+      )}
+
+      {back.length > 0 && (
+        <div>
+          <p className={`px-4 pb-2 text-gold font-bold text-xs uppercase tracking-widest ${hasBoth ? 'pt-6' : 'pt-4'}`}>
+            {hasBoth ? 'Back 9' : 'Back 9'}
+          </p>
+          {renderTable(back, hasBoth ? 'B9' : 'TOT', hasBoth)}
+        </div>
+      )}
     </div>
   )
 }

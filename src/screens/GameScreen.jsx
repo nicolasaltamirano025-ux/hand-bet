@@ -44,6 +44,7 @@ export default function GameScreen() {
   const [penaltyAlert, setPenaltyAlert] = useState(null)
   const [showReview, setShowReview] = useState(false)
   const [showCode, setShowCode] = useState(searchParams.get('new') === '1')
+  const [showExit, setShowExit] = useState(false)
   const [pendingScore, setPendingScore] = useState({})
   const [saving, setSaving] = useState(false)
   const [validation, setValidation] = useState(null) // { type: 'missing'|'zero_putts'|'discrepancy'|'oyes_reminder', ... }
@@ -482,19 +483,20 @@ export default function GameScreen() {
           <div className="flex items-center gap-2">
             {manoState.accumulated > 0 && <ManoFlameBadge accumulated={manoState.accumulated} />}
             <div className="flex gap-1">
-              <button onClick={() => nav(`/round/${code}/scorecard`)} className="text-xs text-gray-400 border border-border rounded-lg px-2.5 py-1.5">📋</button>
-              <button onClick={() => nav(`/round/${code}/bets`)} className="text-xs text-gray-400 border border-border rounded-lg px-2.5 py-1.5">💰</button>
-              {isCreator && <button onClick={() => nav(`/round/${code}/admin`)} className="text-xs text-gray-400 border border-border rounded-lg px-2.5 py-1.5">⚙️</button>}
+              <button onClick={() => setShowExit(true)} className="text-sm text-gray-400 border border-border rounded-lg px-2.5 py-1.5">🚪</button>
+              <button onClick={() => nav(`/round/${code}/scorecard`)} className="text-sm text-gray-400 border border-border rounded-lg px-2.5 py-1.5">📋</button>
+              <button onClick={() => nav(`/round/${code}/bets`)} className="text-sm text-gray-400 border border-border rounded-lg px-2.5 py-1.5">💰</button>
+              {isCreator && <button onClick={() => nav(`/round/${code}/admin`)} className="text-sm text-gray-400 border border-border rounded-lg px-2.5 py-1.5">⚙️</button>}
             </div>
           </div>
         </div>
         {manoState.isOpen && !holderName && (
-          <div className="mt-1 text-xs text-orange-300">
+          <div className="mt-1 text-sm text-orange-300">
             🔥 {tr.manoOpen(manoState.accumulated)}
           </div>
         )}
         {manoState.isOpen && holderName && (
-          <div className="mt-1 text-xs text-orange-300">
+          <div className="mt-1 text-sm text-orange-300">
             {tr.manoStatus(holderName, manoState.accumulated)}
           </div>
         )}
@@ -545,18 +547,18 @@ export default function GameScreen() {
         <button
           onClick={() => setCurrentHoleIdx(i => Math.max(0, i - 1))}
           disabled={currentHoleIdx === 0}
-          className="flex-1 py-3.5 rounded-xl border border-border text-white font-semibold disabled:opacity-30"
+          className="flex-1 py-4 rounded-xl border border-border text-white text-base font-semibold disabled:opacity-30"
         >{tr.previous}</button>
 
         {isCreator && (
-          <Button onClick={saveHole} disabled={saving} className="flex-1 py-3.5 text-sm">
+          <Button onClick={saveHole} disabled={saving} className="flex-1 py-4 text-base">
             {saving ? '...' : tr.save}
           </Button>
         )}
 
         <button
           onClick={handleNext}
-          className="flex-1 py-3.5 rounded-xl border border-border text-white font-semibold"
+          className="flex-1 py-4 rounded-xl border border-border text-white text-base font-semibold"
         >
           {currentHoleIdx < holes.length - 1 ? tr.next : tr.final}
         </button>
@@ -579,6 +581,14 @@ export default function GameScreen() {
       {penaltyAlert && (
         <PenaltyOverlay subtype={penaltyAlert.subtype} playerName={penaltyAlert.name} onDone={() => setPenaltyAlert(null)} />
       )}
+
+      <Modal open={showExit} onClose={() => setShowExit(false)} title="¿Salir de la ronda?">
+        <p className="text-gray-300 text-sm mb-5">Los scores no guardados en este hoyo se perderán. La ronda seguirá disponible con el código <span className="text-gold font-bold">{code}</span>.</p>
+        <div className="flex gap-3">
+          <Button onClick={() => setShowExit(false)} variant="outline" className="flex-1">Cancelar</Button>
+          <Button onClick={() => nav('/')} className="flex-1">Salir</Button>
+        </div>
+      </Modal>
 
       <ReviewModal
         open={showReview}
@@ -704,8 +714,8 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
 
       <div className="flex items-center justify-between mb-3">
         <div>
-          <p className="text-white font-bold text-base">{player.name}</p>
-          <p className="text-gray-400 text-xs">HCP {player.handicap} · {strokes > 0 ? tr.strokes(strokes) : tr.reference}</p>
+          <p className="text-white font-bold text-lg">{player.name}</p>
+          <p className="text-gray-400 text-sm">HCP {player.handicap} · {strokes > 0 ? tr.strokes(strokes) : tr.reference}</p>
         </div>
         <div className="text-right">
           {gross != null && (
@@ -720,29 +730,29 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
       {canEdit ? (
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-gray-400 text-sm w-14">{tr.score}</span>
+            <span className="text-gray-400 text-base w-16">{tr.score}</span>
             <div className="flex items-center gap-2 flex-1">
               <button
                 onClick={() => onChange('gross', gross == null ? Math.max(1, hole.par - 1) : Math.max(1, gross - 1))}
-                className="w-12 h-12 rounded-xl border border-border text-white text-2xl font-bold active:bg-border"
+                className="w-14 h-14 rounded-xl border border-border text-white text-3xl font-bold active:bg-border"
               >−</button>
-              <div className={`flex-1 text-center text-3xl font-black py-1 ${scoreColor}`}>
+              <div className={`flex-1 text-center text-4xl font-black py-1 ${scoreColor}`}>
                 {gross ?? '—'}
               </div>
               <button
                 onClick={() => onChange('gross', gross == null ? hole.par : gross + 1)}
-                className="w-12 h-12 rounded-xl border border-border text-white text-2xl font-bold active:bg-border"
+                className="w-14 h-14 rounded-xl border border-border text-white text-3xl font-bold active:bg-border"
               >+</button>
             </div>
           </div>
 
           {bets.putts?.enabled && (
             <div className="flex items-center gap-2">
-              <span className="text-gray-400 text-sm w-14">{tr.putts}</span>
+              <span className="text-gray-400 text-base w-16">{tr.putts}</span>
               <div className="flex items-center gap-2 flex-1">
-                <button onClick={() => onChange('putts', Math.max(0, (score.putts ?? 0) - 1))} className="w-12 h-12 rounded-xl border border-border text-white text-2xl font-bold active:bg-border">−</button>
-                <div className="flex-1 text-center text-2xl font-bold text-white py-1">{score.putts ?? 0}</div>
-                <button onClick={() => onChange('putts', (score.putts ?? 0) + 1)} className="w-12 h-12 rounded-xl border border-border text-white text-2xl font-bold active:bg-border">+</button>
+                <button onClick={() => onChange('putts', Math.max(0, (score.putts ?? 0) - 1))} className="w-14 h-14 rounded-xl border border-border text-white text-3xl font-bold active:bg-border">−</button>
+                <div className="flex-1 text-center text-3xl font-bold text-white py-1">{score.putts ?? 0}</div>
+                <button onClick={() => onChange('putts', (score.putts ?? 0) + 1)} className="w-14 h-14 rounded-xl border border-border text-white text-3xl font-bold active:bg-border">+</button>
               </div>
             </div>
           )}
@@ -824,7 +834,7 @@ function Chip({ active, onClick, label }) {
   return (
     <button
       onClick={onClick}
-      className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${active ? 'border-gold bg-gold/20 text-gold' : 'border-border text-gray-400'}`}
+      className={`text-sm px-4 py-2 rounded-full border font-medium transition-colors ${active ? 'border-gold bg-gold/20 text-gold' : 'border-border text-gray-400'}`}
     >
       {label}
     </button>

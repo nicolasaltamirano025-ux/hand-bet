@@ -1,2 +1,2 @@
 // Bump this on every meaningful deploy: 1.1 → 1.2 → 1.3 ...
-export const APP_VERSION = '1.6'
+export const APP_VERSION = '1.7'

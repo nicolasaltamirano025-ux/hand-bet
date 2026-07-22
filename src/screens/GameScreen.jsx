@@ -44,6 +44,7 @@ export default function GameScreen() {
   const [penaltyAlert, setPenaltyAlert] = useState(null)
   const [showReview, setShowReview] = useState(false)
   const [showCode, setShowCode] = useState(searchParams.get('new') === '1')
+  const [showExit, setShowExit] = useState(false)
   const [pendingScore, setPendingScore] = useState({})
   const [saving, setSaving] = useState(false)
   const [validation, setValidation] = useState(null) // { type: 'missing'|'zero_putts'|'discrepancy'|'oyes_reminder', ... }
@@ -512,7 +513,7 @@ export default function GameScreen() {
           <div className="flex items-center gap-2">
             {manoState.accumulated > 0 && <ManoFlameBadge accumulated={manoState.accumulated} />}
             <div className="flex gap-1">
-              <button onClick={() => nav('/')} className="text-xs text-gray-400 border border-border rounded-lg px-2.5 py-1.5">🏠</button>
+              <button onClick={() => setShowExit(true)} className="text-xs text-gray-400 border border-border rounded-lg px-2.5 py-1.5">🚪</button>
               <button onClick={() => nav(`/round/${code}/scorecard`)} className="text-xs text-gray-400 border border-border rounded-lg px-2.5 py-1.5">📋</button>
               <button onClick={() => nav(`/round/${code}/bets`)} className="text-xs text-gray-400 border border-border rounded-lg px-2.5 py-1.5">💰</button>
               {isCreator && <button onClick={() => nav(`/round/${code}/admin`)} className="text-xs text-gray-400 border border-border rounded-lg px-2.5 py-1.5">⚙️</button>}
@@ -693,6 +694,14 @@ export default function GameScreen() {
           </div>
         </Modal>
       )}
+
+      <Modal open={showExit} onClose={() => setShowExit(false)} title="¿Salir de la ronda?">
+        <p className="text-gray-300 text-sm mb-5">Los scores no guardados en este hoyo se perderán. Podrás volver a la ronda ingresando el mismo código.</p>
+        <div className="flex gap-3">
+          <Button onClick={() => setShowExit(false)} variant="outline" className="flex-1">Cancelar</Button>
+          <Button onClick={() => nav('/')} className="flex-1">Salir</Button>
+        </div>
+      </Modal>
     </div>
   )
 }
@@ -770,29 +779,29 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
       {canEdit ? (
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-gray-400 text-sm w-14">{tr.score}</span>
+            <span className="text-gray-400 text-base w-16">{tr.score}</span>
             <div className="flex items-center gap-2 flex-1">
               <button
                 onClick={() => onChange('gross', gross == null ? Math.max(1, hole.par - 1) : Math.max(1, gross - 1))}
-                className="w-12 h-12 rounded-xl border border-border text-white text-2xl font-bold active:bg-border"
+                className="w-14 h-14 rounded-xl border border-border text-white text-3xl font-bold active:bg-border"
               >−</button>
-              <div className={`flex-1 text-center text-3xl font-black py-1 ${scoreColor}`}>
+              <div className={`flex-1 text-center text-4xl font-black py-1 ${scoreColor}`}>
                 {gross ?? '—'}
               </div>
               <button
                 onClick={() => onChange('gross', gross == null ? hole.par : gross + 1)}
-                className="w-12 h-12 rounded-xl border border-border text-white text-2xl font-bold active:bg-border"
+                className="w-14 h-14 rounded-xl border border-border text-white text-3xl font-bold active:bg-border"
               >+</button>
             </div>
           </div>
 
           {bets.putts?.enabled && (
             <div className="flex items-center gap-2">
-              <span className="text-gray-400 text-sm w-14">{tr.putts}</span>
+              <span className="text-gray-400 text-base w-16">{tr.putts}</span>
               <div className="flex items-center gap-2 flex-1">
-                <button onClick={() => onChange('putts', Math.max(0, (score.putts ?? 0) - 1))} className="w-12 h-12 rounded-xl border border-border text-white text-2xl font-bold active:bg-border">−</button>
-                <div className="flex-1 text-center text-2xl font-bold text-white py-1">{score.putts ?? 0}</div>
-                <button onClick={() => onChange('putts', (score.putts ?? 0) + 1)} className="w-12 h-12 rounded-xl border border-border text-white text-2xl font-bold active:bg-border">+</button>
+                <button onClick={() => onChange('putts', Math.max(0, (score.putts ?? 0) - 1))} className="w-14 h-14 rounded-xl border border-border text-white text-3xl font-bold active:bg-border">−</button>
+                <div className="flex-1 text-center text-3xl font-bold text-white py-1">{score.putts ?? 0}</div>
+                <button onClick={() => onChange('putts', (score.putts ?? 0) + 1)} className="w-14 h-14 rounded-xl border border-border text-white text-3xl font-bold active:bg-border">+</button>
               </div>
             </div>
           )}

@@ -171,18 +171,48 @@ export default function FinalScreen() {
 }
 
 const TYPE_META = {
-  mano:      { emoji: '🤜', label: "La Mano",   explain: (item, players) => `${item.to.map(id => players[id]?.name).join(' y ')} ganó score neto más bajo` },
-  oyes:      { emoji: '📍', label: "O'yes",      explain: (item, players) => `${item.to.map(id => players[id]?.name).join(' y ')} llegó al green de primer tiro y hizo par` },
-  medals:    { emoji: '🥇', label: 'Medals',     explain: (item, players) => `${item.to.map(id => players[id]?.name).join(' y ')} tuvo el menor score neto acumulado` },
-  drives:    { emoji: '💨', label: 'Drives',     explain: (item, players) => `${item.to.map(id => players[id]?.name).join(' y ')} ganó el drive más largo` },
-  putts:     { emoji: '⛳', label: 'Putts',      explain: (item, players) => `${item.to.map(id => players[id]?.name).join(' y ')} tuvo la mayor cantidad de putts` },
-  units:     { emoji: '🏆', label: 'Unidades',   explain: (item, players) => item.label.replace(' — ', ': ') },
-  pinkies:   { emoji: '🤙', label: 'Pinkies',    explain: (item, players) => `Pinky marcado a ${item.from.map(id => players[id]?.name).join(' y ')}` },
-  penalties: { emoji: '💀', label: 'Penalidades', explain: (item, players) => item.label.replace(' — ', ': ') },
+  mano:      { emoji: '🤜', label: "La Mano"    },
+  oyes:      { emoji: '📍', label: "O'yes"       },
+  medals:    { emoji: '🥇', label: 'Medals'      },
+  drives:    { emoji: '💨', label: 'Drives'      },
+  putts:     { emoji: '⛳', label: 'Putts'       },
+  units:     { emoji: '🏆', label: 'Unidades'    },
+  pinkies:   { emoji: '🤙', label: 'Pinkies'     },
+  penalties: { emoji: '💀', label: 'Penalidades' },
+}
+
+const PAYER_TYPES = new Set(['pinkies', 'penalties'])
+
+function playerEventLabel(type, count) {
+  const s = count !== 1
+  const map = {
+    mano:     `ganó ${count} hoyo${s ? 's' : ''}`,
+    oyes:     `ganó ${count} O'yes`,
+    medals:   `ganó ${count} medalla${s ? 's' : ''}`,
+    drives:   `ganó ${count} drive${s ? 's' : ''}`,
+    units:    `logró ${count} unidad${s ? 'es' : ''}`,
+    pinkies:  `pagó ${count} penalidad${s ? 'es' : ''}`,
+    penalties:`pagó ${count} penalidad${s ? 'es' : ''}`,
+  }
+  return map[type] || `${count} evento${s ? 's' : ''}`
+}
+
+function getPlayerGroups(type, typeItems) {
+  const byPlayer = {}
+  for (const item of typeItems) {
+    const side = PAYER_TYPES.has(type) ? (item.from || []) : (item.to || [])
+    for (const pid of side) {
+      if (!byPlayer[pid]) byPlayer[pid] = { items: [], amount: 0 }
+      byPlayer[pid].items.push({ ...item, playerShare: item.amount / (side.length || 1) })
+      byPlayer[pid].amount += item.amount / (side.length || 1)
+    }
+  }
+  return byPlayer
 }
 
 function BetBreakdown({ items, players }) {
-  const [openTypes, setOpenTypes] = useState({})
+  const [openTypes, setOpenTypes]     = useState({})
+  const [openPlayers, setOpenPlayers] = useState({})
 
   const grouped = useMemo(() => {
     const g = {}
@@ -197,59 +227,88 @@ function BetBreakdown({ items, players }) {
   const typeOrder = ['mano', 'oyes', 'medals', 'drives', 'putts', 'units', 'pinkies', 'penalties', 'other']
   const presentTypes = typeOrder.filter(t => grouped[t]?.length > 0)
 
-  function totalForType(type) {
-    return (grouped[type] || []).reduce((s, item) => s + item.amount, 0)
-  }
-
-  function toggleType(type) {
-    setOpenTypes(o => ({ ...o, [type]: !o[type] }))
-  }
-
-  function fmt(n) { return `$${Math.abs(Number(n || 0)).toLocaleString('es-MX')}` }
+  const totalForType = type => (grouped[type] || []).reduce((s, item) => s + item.amount, 0)
+  const toggleType   = type => setOpenTypes(o => ({ ...o, [type]: !o[type] }))
+  const togglePlayer = key  => setOpenPlayers(o => ({ ...o, [key]: !o[key] }))
+  const fmt = n => `$${Math.abs(Number(n || 0)).toLocaleString('es-MX')}`
 
   return (
     <div className="px-4 mb-6">
       <h3 className="text-gray-400 text-xs uppercase tracking-widest mb-3">Desglose por apuesta</h3>
       <div className="flex flex-col gap-2">
         {presentTypes.map(type => {
-          const meta = TYPE_META[type] || { emoji: '📌', label: type, explain: item => item.label }
+          const meta      = TYPE_META[type] || { emoji: '📌', label: type }
           const typeItems = grouped[type]
-          const total = totalForType(type)
-          const open = openTypes[type]
+          const total     = totalForType(type)
+          const isOpen    = openTypes[type]
+          const isPutts   = type === 'putts'
+          const playerGroups = isPutts ? null : getPlayerGroups(type, typeItems)
 
           return (
             <div key={type} className="bg-surface border border-border rounded-xl overflow-hidden">
+              {/* ── Cabecera del tipo ── */}
               <button
                 onClick={() => toggleType(type)}
                 className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-border/20"
               >
                 <span className="text-xl">{meta.emoji}</span>
                 <span className="text-white font-semibold text-base flex-1">{meta.label}</span>
-                <span className="text-gray-400 text-sm mr-1">{typeItems.length} evento{typeItems.length !== 1 ? 's' : ''}</span>
+                <span className="text-gray-400 text-sm mr-1">
+                  {typeItems.length} evento{typeItems.length !== 1 ? 's' : ''}
+                </span>
                 <span className="text-gold font-bold text-base">{fmt(total)}</span>
-                <span className="text-gray-500 text-sm ml-1">{open ? '▲' : '▼'}</span>
+                <span className="text-gray-500 text-sm ml-1">{isOpen ? '▲' : '▼'}</span>
               </button>
 
-              {open && (
+              {isOpen && (
                 <div className="border-t border-border/50">
-                  {typeItems.map((item, i) => (
-                    <div key={i} className="px-4 py-3 border-b border-border/30 last:border-0">
-                      <div className="flex justify-between items-start gap-3">
-                        <div className="flex-1">
-                          <p className="text-white text-sm font-medium">{item.label}</p>
-                          <p className="text-gray-400 text-xs mt-1 leading-snug">
-                            {meta.explain(item, players)}
-                          </p>
-                          <p className="text-gray-500 text-xs mt-0.5">
-                            {item.from.map(id => players[id]?.name).join(', ')}
-                            <span className="mx-1">→</span>
-                            {item.to.map(id => players[id]?.name).join(', ')}
-                          </p>
+                  {isPutts ? (
+                    /* Putts: transacción única, vista plana */
+                    typeItems.map((item, i) => (
+                      <div key={i} className="px-4 py-3">
+                        <div className="flex justify-between items-start gap-3">
+                          <div className="flex-1">
+                            <p className="text-white text-sm font-medium">{item.label}</p>
+                            <p className="text-gray-500 text-xs mt-0.5">
+                              {(item.from || []).map(id => players[id]?.name).join(', ')}
+                              <span className="mx-1">→</span>
+                              {(item.to || []).map(id => players[id]?.name).join(', ')}
+                            </p>
+                          </div>
+                          <span className="text-gold font-bold text-sm shrink-0">{fmt(item.amount)}</span>
                         </div>
-                        <span className="text-gold font-bold text-sm shrink-0">{fmt(item.amount)}</span>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    /* Resto: agrupado por jugador con sub-toggle */
+                    Object.entries(playerGroups).map(([pid, data]) => {
+                      const pkey = `${type}_${pid}`
+                      const isPlayerOpen = openPlayers[pkey]
+                      return (
+                        <div key={pid} className="border-b border-border/30 last:border-0">
+                          <button
+                            onClick={() => togglePlayer(pkey)}
+                            className="w-full flex items-center gap-2 px-4 py-3 text-left active:bg-border/20"
+                          >
+                            <span className="text-white font-semibold text-sm flex-1">{players[pid]?.name}</span>
+                            <span className="text-gray-400 text-xs">{playerEventLabel(type, data.items.length)}</span>
+                            <span className="text-gold font-semibold text-sm ml-2">{fmt(data.amount)}</span>
+                            <span className="text-gray-500 text-xs ml-1">{isPlayerOpen ? '▲' : '▼'}</span>
+                          </button>
+                          {isPlayerOpen && (
+                            <div className="bg-black/20 border-t border-border/30">
+                              {data.items.map((item, i) => (
+                                <div key={i} className="px-5 py-2.5 border-b border-border/20 last:border-0 flex justify-between items-center gap-3">
+                                  <p className="text-gray-300 text-xs flex-1">{item.label}</p>
+                                  <span className="text-gray-400 text-xs shrink-0">{fmt(item.playerShare)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })
+                  )}
                 </div>
               )}
             </div>

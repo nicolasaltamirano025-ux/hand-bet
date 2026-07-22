@@ -116,14 +116,11 @@ export function computeSettlement(round) {
       }))
       const { totalPutts, minPlayers, maxPlayers, min, max } = calcPutts(players, holesWithScores)
 
-      if (max > 0 && maxPlayers.length > 0) {
-        const nonMaxPlayers = playerIds.filter(id => !maxPlayers.includes(id))
-        if (nonMaxPlayers.length > 0) {
-          const totalAmount = max * puttVal
-          const namesMax = maxPlayers.map(id => `${players[id]?.name} (${max}p)`).join(' y ')
-          const namesNon = nonMaxPlayers.map(id => players[id]?.name).join(', ')
-          pay(nonMaxPlayers, maxPlayers, totalAmount, `Putts — ${namesMax} recibe${maxPlayers.length > 1 ? 'n' : ''} de ${namesNon}`, 'putts')
-        }
+      if (max > min && maxPlayers.length > 0 && minPlayers.length > 0) {
+        const totalAmount = max * puttVal
+        const namesMax = maxPlayers.map(id => `${players[id]?.name} (${max}p)`).join(' y ')
+        const namesMin = minPlayers.map(id => `${players[id]?.name} (${min}p)`).join(' y ')
+        pay(maxPlayers, minPlayers, totalAmount, `Putts — ${namesMax} paga${maxPlayers.length > 1 ? 'n' : ''} a ${namesMin}`, 'putts')
       }
     }
   }

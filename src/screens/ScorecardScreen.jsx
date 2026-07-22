@@ -56,8 +56,20 @@ export default function ScorecardScreen() {
 
   const holeWinnerMap = {}
   for (const ev of (round.manoEvents || [])) {
-    if (ev.type === 'mano_win' || ev.type === 'hole_win') {
+    if (ev.type === 'hole_win') {
       holeWinnerMap[ev.holeNum] = ev.winnerId
+    }
+    if (ev.type === 'mano_win') {
+      holeWinnerMap[ev.holeNum] = ev.winnerId
+      // Circle every accumulated hole, not just the winning one
+      if (ev.units > 1) {
+        const winIdx = holes.findIndex(h => h.n === ev.holeNum)
+        if (winIdx >= 0) {
+          for (let i = Math.max(0, winIdx - ev.units + 1); i < winIdx; i++) {
+            holeWinnerMap[holes[i].n] = ev.winnerId
+          }
+        }
+      }
     }
   }
 

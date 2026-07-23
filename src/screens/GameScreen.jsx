@@ -91,12 +91,12 @@ export default function GameScreen() {
       const idx = holes.findIndex(h => h.n === editHoleN)
       if (idx >= 0) { setCurrentHoleIdx(idx); return }
     }
-    let lastIdx = 0
-    for (let i = 0; i < holes.length; i++) {
-      const saved = round?.holes?.[holes[i].n]?.scores || {}
-      if (Object.keys(saved).length > 0) lastIdx = i
-    }
-    setCurrentHoleIdx(lastIdx)
+    // Jump to first hole where any player is still missing a score
+    const firstPendingIdx = holes.findIndex(h => {
+      const saved = round?.holes?.[h.n]?.scores || {}
+      return playerIds.some(id => saved[id]?.gross == null)
+    })
+    setCurrentHoleIdx(firstPendingIdx >= 0 ? firstPendingIdx : holes.length - 1)
   }, [holes])
 
   useEffect(() => {

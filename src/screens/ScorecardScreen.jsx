@@ -60,9 +60,11 @@ export default function ScorecardScreen() {
 
   function findMedalWinners(holeList) {
     if (!allScored(holeList)) return new Set()
-    const nets = playerIds.map(id => ({ id, net: totalNet(id, holeList) }))
-    const min = Math.min(...nets.map(x => x.net))
-    return new Set(nets.filter(x => x.net === min).map(x => x.id))
+    const nets = playerIds.map(id => ({ id, net: totalNet(id, holeList), hcp: players[id].handicap }))
+    const minNet = Math.min(...nets.map(x => x.net))
+    const tied = nets.filter(x => x.net === minNet)
+    const minHcp = Math.min(...tied.map(x => x.hcp))
+    return new Set(tied.filter(x => x.hcp === minHcp).map(x => x.id))
   }
 
   const medalsOn = round.bets?.medals?.enabled !== false

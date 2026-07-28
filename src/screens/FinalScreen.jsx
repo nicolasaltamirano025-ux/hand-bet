@@ -6,6 +6,7 @@ import { generateShareImage } from '../utils/shareImage'
 import { useLanguage } from '../i18n'
 import { useAuth } from '../contexts/AuthContext'
 import { recordRoundResult } from '../firebase/userService'
+import { voidEvent, unvoidEvent } from '../firebase/roundsService'
 
 const fmt = n => `$${Math.abs(Number(n || 0)).toLocaleString('es-MX')}`
 
@@ -40,10 +41,13 @@ export default function FinalScreen() {
 
   const { players } = round
   const playerIds = Object.keys(players || {})
+  const localPlayerId = localStorage.getItem(`hb_player_${code}`)
+  const isCreator = round.players?.[localPlayerId]?.isCreator === true
+  const voidedKeys = new Set(Object.keys(round.voidedEvents || {}))
 
   let settlement
   try {
-    settlement = computeSettlement(round)
+    settlement = computeSettlement(round, voidedKeys)
   } catch {
     settlement = { items: [], debts: [], ledger: {} }
   }
@@ -139,7 +143,13 @@ export default function FinalScreen() {
         )}
 
         {items.length > 0 && (
-          <BetBreakdown items={items} players={players} />
+          <BetBreakdown
+            items={items}
+            players={players}
+            isCreator={isCreator}
+            onVoid={key => voidEvent(code, key)}
+            onUnvoid={key => unvoidEvent(code, key)}
+          />
         )}
       </div>
 
@@ -204,14 +214,16 @@ function getPlayerGroups(type, typeItems) {
     for (const pid of side) {
       if (!byPlayer[pid]) byPlayer[pid] = { items: [], amount: 0, holeCount: 0 }
       byPlayer[pid].items.push({ ...item, playerShare: item.amount / (side.length || 1) })
-      byPlayer[pid].amount    += item.amount / (side.length || 1)
-      byPlayer[pid].holeCount += item.units || 1
+      if (!item.voided) {
+        byPlayer[pid].amount    += item.amount / (side.length || 1)
+        byPlayer[pid].holeCount += item.units || 1
+      }
     }
   }
   return byPlayer
 }
 
-function BetBreakdown({ items, players }) {
+function BetBreakdown({ items, players, isCreator, onVoid, onUnvoid }) {
   const [openTypes, setOpenTypes]     = useState({})
   const [openPlayers, setOpenPlayers] = useState({})
 
@@ -228,7 +240,7 @@ function BetBreakdown({ items, players }) {
   const typeOrder = ['mano', 'oyes', 'medals', 'drives', 'putts', 'units', 'pinkies', 'penalties', 'other']
   const presentTypes = typeOrder.filter(t => grouped[t]?.length > 0)
 
-  const totalForType = type => (grouped[type] || []).reduce((s, item) => s + item.amount, 0)
+  const totalForType = type => (grouped[type] || []).filter(i => !i.voided).reduce((s, item) => s + item.amount, 0)
   const toggleType   = type => setOpenTypes(o => ({ ...o, [type]: !o[type] }))
   const togglePlayer = key  => setOpenPlayers(o => ({ ...o, [key]: !o[key] }))
   const fmt = n => `$${Math.abs(Number(n || 0)).toLocaleString('es-MX')}`
@@ -255,7 +267,8 @@ function BetBreakdown({ items, players }) {
                 <span className="text-xl">{meta.emoji}</span>
                 <span className="text-white font-semibold text-base flex-1">{meta.label}</span>
                 <span className="text-gray-400 text-sm mr-1">
-                  {typeItems.length} evento{typeItems.length !== 1 ? 's' : ''}
+                  {typeItems.filter(i => !i.voided).length} evento{typeItems.filter(i => !i.voided).length !== 1 ? 's' : ''}
+                  {typeItems.some(i => i.voided) && <span className="text-red-400/60 ml-1">({typeItems.filter(i => i.voided).length} anulado{typeItems.filter(i => i.voided).length !== 1 ? 's' : ''})</span>}
                 </span>
                 <span className="text-gold font-bold text-base">{fmt(total)}</span>
                 <span className="text-gray-500 text-sm ml-1">{isOpen ? '▲' : '▼'}</span>
@@ -266,17 +279,22 @@ function BetBreakdown({ items, players }) {
                   {isPutts ? (
                     /* Putts: transacción única, vista plana */
                     typeItems.map((item, i) => (
-                      <div key={i} className="px-4 py-3">
+                      <div key={i} className={`px-4 py-3 ${item.voided ? 'opacity-50' : ''}`}>
                         <div className="flex justify-between items-start gap-3">
                           <div className="flex-1">
-                            <p className="text-white text-sm font-medium">{item.label}</p>
+                            <p className={`text-white text-sm font-medium ${item.voided ? 'line-through' : ''}`}>{item.label}</p>
                             <p className="text-gray-500 text-xs mt-0.5">
                               {(item.from || []).map(id => players[id]?.name).join(', ')}
                               <span className="mx-1">→</span>
                               {(item.to || []).map(id => players[id]?.name).join(', ')}
                             </p>
                           </div>
-                          <span className="text-gold font-bold text-sm shrink-0">{fmt(item.amount)}</span>
+                          <span className={`font-bold text-sm shrink-0 ${item.voided ? 'line-through text-gray-500' : 'text-gold'}`}>{fmt(item.amount)}</span>
+                          {isCreator && item.key && (
+                            item.voided
+                              ? <button onClick={() => onUnvoid(item.key)} className="text-green-400 text-base ml-2 shrink-0 active:opacity-60">↩</button>
+                              : <button onClick={() => onVoid(item.key)} className="text-red-400/50 text-base ml-2 shrink-0 active:text-red-400">✕</button>
+                          )}
                         </div>
                       </div>
                     ))
@@ -299,10 +317,15 @@ function BetBreakdown({ items, players }) {
                           {isPlayerOpen && (
                             <div className="bg-black/20 border-t border-border/30">
                               {data.items.map((item, i) => (
-                                <div key={i} className="px-5 py-2.5 border-b border-border/20 last:border-0">
+                                <div key={i} className={`px-5 py-2.5 border-b border-border/20 last:border-0 ${item.voided ? 'opacity-50' : ''}`}>
                                   <div className="flex justify-between items-center gap-3">
-                                    <p className="text-gray-300 text-xs flex-1">{item.label}</p>
-                                    <span className="text-gray-400 text-xs shrink-0">{fmt(item.playerShare)}</span>
+                                    <p className={`text-gray-300 text-xs flex-1 ${item.voided ? 'line-through text-gray-500' : ''}`}>{item.label}</p>
+                                    <span className={`text-xs shrink-0 ${item.voided ? 'line-through text-gray-500' : 'text-gray-400'}`}>{fmt(item.playerShare)}</span>
+                                    {isCreator && item.key && (
+                                      item.voided
+                                        ? <button onClick={() => onUnvoid(item.key)} className="text-green-400 text-sm ml-2 shrink-0 active:opacity-60">↩</button>
+                                        : <button onClick={() => onVoid(item.key)} className="text-red-400/50 text-sm ml-2 shrink-0 active:text-red-400">✕</button>
+                                    )}
                                   </div>
                                   {type === 'medals' && item.meta?.netScores && (
                                     <MedalDetail meta={item.meta} players={players} />

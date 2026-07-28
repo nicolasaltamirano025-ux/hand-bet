@@ -8,7 +8,7 @@ function holesComplete(holesMap, playerIds, predicate) {
   )
 }
 
-export function computeSettlement(round) {
+export function computeSettlement(round, voidedKeys = new Set()) {
   const { players, holes: holesMap, bets, roundType } = round
   const playerIds = Object.keys(players)
   const holes = Object.values(holesMap || {}).sort((a, b) => a.n - b.n)
@@ -19,13 +19,16 @@ export function computeSettlement(round) {
 
   const items = []
 
-  function pay(fromIds, toIds, amount, label, type = null, units = 1, meta = null) {
+  function pay(fromIds, toIds, amount, label, type = null, units = 1, meta = null, key = null) {
     if (!fromIds.length || !toIds.length || amount === 0) return
-    const perFrom = amount / fromIds.length
-    const perTo   = amount / toIds.length
-    for (const from of fromIds) ledger[from] -= perFrom
-    for (const to of toIds)     ledger[to]   += perTo
-    items.push({ label, amount, from: fromIds, to: toIds, type, units, meta })
+    const voided = key != null && voidedKeys.has(key)
+    if (!voided) {
+      const perFrom = amount / fromIds.length
+      const perTo   = amount / toIds.length
+      for (const from of fromIds) ledger[from] -= perFrom
+      for (const to of toIds)     ledger[to]   += perTo
+    }
+    items.push({ label, amount, from: fromIds, to: toIds, type, units, meta, key, voided })
   }
 
   // ── LA MANO ────────────────────────────────────────────────────────────────
@@ -35,15 +38,15 @@ export function computeSettlement(round) {
     for (const ev of manoEvents) {
       if (ev.type === 'mano_win') {
         const losers = playerIds.filter(id => id !== ev.winnerId)
-        pay(losers, [ev.winnerId], ev.units * val * losers.length, `Mano hoyo ${ev.holeNum} (${ev.units} hoyos)`, 'mano', ev.units)
+        pay(losers, [ev.winnerId], ev.units * val * losers.length, `Mano hoyo ${ev.holeNum} (${ev.units} hoyos)`, 'mano', ev.units, null, `mano_win_${ev.holeNum}`)
       }
       if (ev.type === 'hole_win') {
         const losers = playerIds.filter(id => id !== ev.winnerId)
-        pay(losers, [ev.winnerId], val * losers.length, `Hoyo ${ev.holeNum}`, 'mano', 1)
+        pay(losers, [ev.winnerId], val * losers.length, `Hoyo ${ev.holeNum}`, 'mano', 1, null, `mano_hole_${ev.holeNum}`)
       }
       if (ev.type === 'salvamento') {
         const payers = playerIds.filter(id => id !== ev.receiverId && id !== ev.manoHolderId)
-        pay(payers, [ev.receiverId], val * payers.length, `Salvamento hoyo ${ev.holeNum}`, 'mano')
+        pay(payers, [ev.receiverId], val * payers.length, `Salvamento hoyo ${ev.holeNum}`, 'mano', 1, null, `mano_salvamento_${ev.holeNum}`)
       }
     }
   }
@@ -59,7 +62,7 @@ export function computeSettlement(round) {
       if (ev.type === 'oyes_won') {
         const losers = playerIds.filter(id => !ev.winners.includes(id))
         const totalPot = oyesVal * ev.units * losers.length * multiplier
-        pay(losers, ev.winners, totalPot, `O'yes hoyo ${ev.holeNum}${ev.units > 1 ? ` (×${ev.units} acum.)` : ''}${zapato ? ' ×2 ZAPATO' : ''}`, 'oyes')
+        pay(losers, ev.winners, totalPot, `O'yes hoyo ${ev.holeNum}${ev.units > 1 ? ` (×${ev.units} acum.)` : ''}${zapato ? ' ×2 ZAPATO' : ''}`, 'oyes', 1, null, `oyes_${ev.holeNum}`)
       }
     }
   }
@@ -97,7 +100,7 @@ export function computeSettlement(round) {
         netScores: catTotals,
         hadScoreTie: tiedPlayers.length > 1,
         tiedPlayers,
-      })
+      }, `medals_${cat}`)
     }
   }
 
@@ -108,7 +111,7 @@ export function computeSettlement(round) {
     for (const ev of driveEvents) {
       if (ev.type === 'drive_won') {
         const losers = playerIds.filter(id => id !== ev.winnerId)
-        pay(losers, [ev.winnerId], ev.totalValue * losers.length, `Drive hoyo ${ev.holeNum}${ev.totalValue > driveVal ? ` (acum. $${ev.totalValue})` : ''}`, 'drives')
+        pay(losers, [ev.winnerId], ev.totalValue * losers.length, `Drive hoyo ${ev.holeNum}${ev.totalValue > driveVal ? ` (acum. $${ev.totalValue})` : ''}`, 'drives', 1, null, `drives_${ev.holeNum}`)
       }
     }
   }
@@ -128,7 +131,7 @@ export function computeSettlement(round) {
         const totalAmount = max * puttVal
         const namesMax = maxPlayers.map(id => `${players[id]?.name} (${max}p)`).join(' y ')
         const namesMin = minPlayers.map(id => `${players[id]?.name} (${min}p)`).join(' y ')
-        pay(maxPlayers, minPlayers, totalAmount, `Putts — ${namesMax} paga${maxPlayers.length > 1 ? 'n' : ''} a ${namesMin}`, 'putts')
+        pay(maxPlayers, minPlayers, totalAmount, `Putts — ${namesMax} paga${maxPlayers.length > 1 ? 'n' : ''} a ${namesMin}`, 'putts', 1, null, 'putts_total')
       }
     }
   }
@@ -142,7 +145,7 @@ export function computeSettlement(round) {
       if (ev.type === 'pinky') {
         const others = playerIds.filter(id => id !== ev.playerId)
         const label = castigoLabel[ev.subtype] || 'Pinky'
-        pay([ev.playerId], others, pinkVal * others.length, `${label} hoyo ${ev.holeNum} — ${players[ev.playerId]?.name}`, 'pinkies')
+        pay([ev.playerId], others, pinkVal * others.length, `${label} hoyo ${ev.holeNum} — ${players[ev.playerId]?.name}`, 'pinkies', 1, null, `pinkies_${ev.holeNum}_${ev.playerId}`)
       }
     }
   }
@@ -162,7 +165,7 @@ export function computeSettlement(round) {
           const multiplier = unitValues[unit] || 1
           const amount = baseVal * multiplier * (playerIds.length - 1)
           const losers = playerIds.filter(pid => pid !== id)
-          pay(losers, [id], amount, `${unitLabel(unit)} hoyo ${hole.n} — ${players[id].name}`, 'units')
+          pay(losers, [id], amount, `${unitLabel(unit)} hoyo ${hole.n} — ${players[id].name}`, 'units', 1, null, `units_${hole.n}_${id}_${unit}`)
         }
       }
     }
@@ -183,7 +186,7 @@ export function computeSettlement(round) {
           const multiplier = penaltyValues[penalty] || 1
           const amount = baseVal * multiplier * (playerIds.length - 1)
           const others = playerIds.filter(pid => pid !== id)
-          pay([id], others, amount, `${penaltyLabel(penalty)} hoyo ${hole.n} — ${players[id].name}`, 'penalties')
+          pay([id], others, amount, `${penaltyLabel(penalty)} hoyo ${hole.n} — ${players[id].name}`, 'penalties', 1, null, `penalties_${hole.n}_${id}_${penalty}`)
         }
       }
     }

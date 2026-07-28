@@ -81,4 +81,14 @@ export async function updateReviewStatus(code, holeNum, status, resolution) {
   await update(ref(db, `rounds/${code}/holes/${holeNum}/review`), { status, resolution: resolution || null })
 }
 
+export async function voidEvent(code, key) {
+  guard()
+  await set(ref(db, `rounds/${code}/voidedEvents/${key}`), true)
+}
+
+export async function unvoidEvent(code, key) {
+  guard()
+  await set(ref(db, `rounds/${code}/voidedEvents/${key}`), null)
+}
+
 export { isConfigured }

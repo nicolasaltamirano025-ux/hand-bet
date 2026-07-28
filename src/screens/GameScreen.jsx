@@ -159,7 +159,11 @@ export default function GameScreen() {
   }
 
   async function handleAcceptProposal(playerId) {
+    const proposalData = holeProposals[playerId]
     await acceptPendingScore(code, currentHole.n, playerId)
+    if (proposalData && Object.keys(proposalData).length > 0) {
+      setPendingScore(prev => ({ ...prev, [playerId]: { ...proposalData } }))
+    }
   }
 
   async function handleRejectProposal(playerId) {

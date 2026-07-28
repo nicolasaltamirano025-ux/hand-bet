@@ -66,8 +66,13 @@ export default function CreateRound() {
 
     const holesTemplate = {}
     orderedHoles.forEach((h, idx) => {
-      // Resolve SI based on starting hole (El Campanario has si10 for back-first play)
-      const si = startingHole === 10 && h.si10 != null ? h.si10 : h.si
+      // Resolve SI based on starting hole: si10 on each hole stores the SI for its paired hole (n±9)
+      let si = h.si
+      if (startingHole === 10) {
+        const pairedN = h.n > 9 ? h.n - 9 : h.n + 9
+        const pairedHole = fieldHoles.find(fh => fh.n === pairedN)
+        if (pairedHole?.si10 != null) si = pairedHole.si10
+      }
       holesTemplate[h.n] = {
         n: h.n,
         par: h.par,

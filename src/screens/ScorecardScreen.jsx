@@ -54,6 +54,22 @@ export default function ScorecardScreen() {
   const back  = holes.filter(h => h.n >= 10)
   const hasBoth = front.length > 0 && back.length > 0
 
+  function allScored(holeList) {
+    return playerIds.every(id => holeList.every(h => round.holes?.[h.n]?.scores?.[id]?.gross != null))
+  }
+
+  function findMedalWinners(holeList) {
+    if (!allScored(holeList)) return new Set()
+    const nets = playerIds.map(id => ({ id, net: totalNet(id, holeList) }))
+    const min = Math.min(...nets.map(x => x.net))
+    return new Set(nets.filter(x => x.net === min).map(x => x.id))
+  }
+
+  const medalsOn = round.bets?.medals?.enabled !== false
+  const frontMedalWinners = medalsOn && front.length > 0 ? findMedalWinners(front) : new Set()
+  const backMedalWinners  = medalsOn && back.length > 0  ? findMedalWinners(back)  : new Set()
+  const totalMedalWinners = medalsOn && hasBoth           ? findMedalWinners(holes) : new Set()
+
   const holeWinnerMap = {}
   for (const ev of (round.manoEvents || [])) {
     if (ev.type === 'hole_win') {
@@ -83,7 +99,7 @@ export default function ScorecardScreen() {
     if (ev.penalties?.length > 0) penaltyMap[`${ev.holeNum}_${ev.playerId}`] = true
   }
 
-  function renderTable(sectionHoles, secTotLabel, showGrandTot) {
+  function renderTable(sectionHoles, secTotLabel, showGrandTot, sectionWinners = new Set(), grandWinners = new Set()) {
     return (
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm border-collapse">
@@ -141,8 +157,18 @@ export default function ScorecardScreen() {
                     const n = net(id, h)
                     return <td key={h.n} className="px-2 py-1.5 text-center text-gray-400 text-xs">{n ?? '·'}</td>
                   })}
-                  <td className="px-2 py-1.5 text-center text-gray-400 text-xs">{totalNet(id, sectionHoles) || '·'}</td>
-                  {showGrandTot && <td className="px-2 py-1.5 text-center text-gray-400 text-xs">{totalNet(id, holes) || '·'}</td>}
+                  <td className="px-2 py-1.5 text-center">
+                    <span className={`text-xs ${sectionWinners.has(id) ? 'inline-flex items-center justify-center w-7 h-5 rounded-full ring-1 ring-gold text-gold font-bold' : 'text-gray-400'}`}>
+                      {totalNet(id, sectionHoles) || '·'}
+                    </span>
+                  </td>
+                  {showGrandTot && (
+                    <td className="px-2 py-1.5 text-center">
+                      <span className={`text-xs ${grandWinners.has(id) ? 'inline-flex items-center justify-center w-7 h-5 rounded-full ring-1 ring-gold text-gold font-bold' : 'text-gray-400'}`}>
+                        {totalNet(id, holes) || '·'}
+                      </span>
+                    </td>
+                  )}
                 </tr>
                 {round.bets?.putts?.enabled && (
                   <tr key={`${id}-p`} className="border-b border-border">
@@ -178,7 +204,7 @@ export default function ScorecardScreen() {
       {front.length > 0 && (
         <div>
           {hasBoth && <p className="px-4 pt-4 pb-2 text-gold font-bold text-xs uppercase tracking-widest">Front 9</p>}
-          {renderTable(front, hasBoth ? 'F9' : 'TOT', false)}
+          {renderTable(front, hasBoth ? 'F9' : 'TOT', false, frontMedalWinners)}
         </div>
       )}
 
@@ -187,7 +213,7 @@ export default function ScorecardScreen() {
           <p className={`px-4 pb-2 text-gold font-bold text-xs uppercase tracking-widest ${hasBoth ? 'pt-6' : 'pt-4'}`}>
             {hasBoth ? 'Back 9' : 'Back 9'}
           </p>
-          {renderTable(back, hasBoth ? 'B9' : 'TOT', hasBoth)}
+          {renderTable(back, hasBoth ? 'B9' : 'TOT', hasBoth, backMedalWinners, totalMedalWinners)}
         </div>
       )}
     </div>

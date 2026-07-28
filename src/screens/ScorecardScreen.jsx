@@ -150,8 +150,18 @@ export default function ScorecardScreen() {
                       </td>
                     )
                   })}
-                  <td className="px-2 py-2.5 text-center text-gold font-bold text-sm">{totalGross(id, sectionHoles) || '·'}</td>
-                  {showGrandTot && <td className="px-2 py-2.5 text-center text-gold font-bold text-sm">{totalGross(id, holes) || '·'}</td>}
+                  <td className="px-2 py-2.5 text-center">
+                    <span className={`inline-flex items-center justify-center font-bold text-sm ${sectionWinners.has(id) ? 'w-9 h-9 rounded-full ring-2 ring-gold bg-gold/15 text-gold' : 'text-gold'}`}>
+                      {totalGross(id, sectionHoles) || '·'}
+                    </span>
+                  </td>
+                  {showGrandTot && (
+                    <td className="px-2 py-2.5 text-center">
+                      <span className={`inline-flex items-center justify-center font-bold text-sm ${grandWinners.has(id) ? 'w-9 h-9 rounded-full ring-2 ring-gold bg-gold/15 text-gold' : 'text-gold'}`}>
+                        {totalGross(id, holes) || '·'}
+                      </span>
+                    </td>
+                  )}
                 </tr>
                 <tr key={`${id}-n`} className="border-b border-border/30">
                   <td className="sticky left-0 bg-bg px-3 py-1.5 text-gray-400 text-xs">{tr.net}</td>

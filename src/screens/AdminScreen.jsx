@@ -528,6 +528,11 @@ function PlayersEditor({ players, playerIds, code }) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
+  const [newName, setNewName]         = useState('')
+  const [newHandicap, setNewHandicap] = useState(18)
+  const [adding, setAdding]           = useState(false)
+  const [addedName, setAddedName]     = useState('')
+
   useEffect(() => {
     setLocalPlayers(playerIds.map(id => ({ id, handicap: players[id]?.handicap ?? 0 })))
   }, [JSON.stringify(playerIds.map(id => players[id]?.handicap))])
@@ -541,6 +546,22 @@ function PlayersEditor({ players, playerIds, code }) {
     await updateRoundDeep(code, updates)
     setSaving(false)
     setSaved(true)
+  }
+
+  async function handleAddPlayer() {
+    const name = newName.trim()
+    if (!name) return
+    setAdding(true)
+    const maxN = Math.max(...playerIds.map(id => parseInt(id.slice(1)) || 0), 0)
+    const nextId = `p${maxN + 1}`
+    await updateRoundDeep(code, {
+      [`players/${nextId}`]: { id: nextId, name, handicap: Number(newHandicap), isCreator: false },
+    })
+    setAddedName(name)
+    setNewName('')
+    setNewHandicap(18)
+    setAdding(false)
+    setTimeout(() => setAddedName(''), 3000)
   }
 
   return (
@@ -567,6 +588,23 @@ function PlayersEditor({ players, playerIds, code }) {
           {saving ? 'Guardando…' : 'Guardar handicaps'}
         </Button>
         <SaveFeedback saved={saved} />
+      </div>
+
+      {/* ── Añadir jugador ── */}
+      <div className="border-t border-border/40 pt-4 flex flex-col gap-2">
+        <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Añadir jugador</p>
+        <input
+          type="text"
+          placeholder="Nombre del jugador"
+          value={newName}
+          onChange={e => setNewName(e.target.value)}
+          className="bg-bg border border-border rounded-xl px-3 py-2.5 text-white text-sm outline-none focus:border-gold placeholder-gray-600"
+        />
+        <NumberInput label="HCP" value={newHandicap} min={0} max={54} prefix="HCP" onChange={setNewHandicap} />
+        <Button onClick={handleAddPlayer} disabled={!newName.trim() || adding} className="w-full">
+          {adding ? 'Añadiendo…' : '+ Añadir a la ronda'}
+        </Button>
+        {addedName ? <span className="text-green-400 text-xs text-center">✓ {addedName} añadido a la ronda</span> : null}
       </div>
     </div>
   )
@@ -645,8 +683,8 @@ export default function AdminScreen() {
         {/* Section 3: Players / handicaps */}
         <AdminSection
           emoji="👤"
-          title="Handicaps de jugadores"
-          description="Corrige el handicap de cualquier jugador. Aplica inmediatamente al cálculo de ventajas en La Mano y Medals."
+          title="Jugadores"
+          description="Corrige handicaps o añade un jugador nuevo a la ronda en curso. Los cambios aplican inmediatamente."
         >
           <PlayersEditor players={players} playerIds={playerIds} code={code} />
         </AdminSection>

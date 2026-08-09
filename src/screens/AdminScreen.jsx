@@ -63,13 +63,39 @@ function SaveFeedback({ saved }) {
   return <span className="text-green-400 text-xs font-semibold">✓ Guardado</span>
 }
 
+// ─── Participant Chips (admin) ────────────────────────────────────────────────
+
+function AdminParticipantChips({ playerItems, excluded, onToggle }) {
+  if (playerItems.length < 2) return null
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-gray-500 text-xs">Participantes</span>
+      <div className="flex flex-wrap gap-1.5">
+        {playerItems.map(({ id, name }) => {
+          const active = !excluded.includes(id)
+          return (
+            <button
+              key={id}
+              onClick={() => onToggle(id)}
+              className={`text-xs px-3 py-1 rounded-full border font-medium transition-colors ${active ? 'border-gold bg-gold/15 text-gold' : 'border-border text-gray-500'}`}
+            >
+              {name}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ─── Bets Editor ─────────────────────────────────────────────────────────────
 
-function BetsEditor({ initialBets, roundType, code }) {
+function BetsEditor({ initialBets, roundType, code, players = {}, playerIds = [] }) {
   const { tr } = useLanguage()
   const [bets, setBets] = useState(initialBets)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const playerItems = playerIds.map(id => ({ id, name: players[id]?.name || id }))
 
   useEffect(() => { setBets(initialBets) }, [JSON.stringify(initialBets)])
 
@@ -96,6 +122,14 @@ function BetsEditor({ initialBets, roundType, code }) {
     setBets(b => ({ ...b, [section]: { ...(b[section] ?? {}), [field]: val } }))
     setSaved(false)
   }
+  function toggleParticipant(betKey, playerId) {
+    setBets(b => {
+      const excl = b[betKey]?.excluded || []
+      const newExcl = excl.includes(playerId) ? excl.filter(id => id !== playerId) : [...excl, playerId]
+      return { ...b, [betKey]: { ...b[betKey], excluded: newExcl } }
+    })
+    setSaved(false)
+  }
 
   async function handleSave() {
     setSaving(true)
@@ -115,12 +149,22 @@ function BetsEditor({ initialBets, roundType, code }) {
     <div className="flex flex-col gap-0">
       <Row title="🤜 La Mano">
         <Toggle checked={bets.mano.enabled} onChange={() => toggle('mano')} label="La Mano" />
-        {bets.mano.enabled && <div className="mt-2"><NumberInput label="Valor por hoyo" value={bets.mano.valuePerHole} onChange={v => setVal('mano', 'valuePerHole', v)} /></div>}
+        {bets.mano.enabled && (
+          <div className="flex flex-col gap-2 mt-2">
+            <NumberInput label="Valor por hoyo" value={bets.mano.valuePerHole} onChange={v => setVal('mano', 'valuePerHole', v)} />
+            <AdminParticipantChips playerItems={playerItems} excluded={bets.mano?.excluded || []} onToggle={id => toggleParticipant('mano', id)} />
+          </div>
+        )}
       </Row>
 
       <Row title="📍 O'yes">
         <Toggle checked={bets.oyes.enabled} onChange={() => toggle('oyes')} label="O'yes" />
-        {bets.oyes.enabled && <div className="mt-2"><NumberInput label="Valor por O'yes" value={bets.oyes.value} onChange={v => setVal('oyes', 'value', v)} /></div>}
+        {bets.oyes.enabled && (
+          <div className="flex flex-col gap-2 mt-2">
+            <NumberInput label="Valor por O'yes" value={bets.oyes.value} onChange={v => setVal('oyes', 'value', v)} />
+            <AdminParticipantChips playerItems={playerItems} excluded={bets.oyes?.excluded || []} onToggle={id => toggleParticipant('oyes', id)} />
+          </div>
+        )}
       </Row>
 
       <Row title="🥇 Medals">
@@ -130,18 +174,29 @@ function BetsEditor({ initialBets, roundType, code }) {
             {(roundType === '18' || roundType === 'front9') && <NumberInput label="Front 9" value={bets.medals.frontValue} onChange={v => setVal('medals', 'frontValue', v)} />}
             {(roundType === '18' || roundType === 'back9') && <NumberInput label="Back 9" value={bets.medals.backValue} onChange={v => setVal('medals', 'backValue', v)} />}
             {roundType === '18' && <NumberInput label="Total" value={bets.medals.totalValue} onChange={v => setVal('medals', 'totalValue', v)} />}
+            <AdminParticipantChips playerItems={playerItems} excluded={bets.medals?.excluded || []} onToggle={id => toggleParticipant('medals', id)} />
           </div>
         )}
       </Row>
 
       <Row title="💨 Drives">
         <Toggle checked={bets.drives.enabled} onChange={() => toggle('drives')} label="Drives" />
-        {bets.drives.enabled && <div className="mt-2"><NumberInput label="Valor por hoyo" value={bets.drives.value} onChange={v => setVal('drives', 'value', v)} /></div>}
+        {bets.drives.enabled && (
+          <div className="flex flex-col gap-2 mt-2">
+            <NumberInput label="Valor por hoyo" value={bets.drives.value} onChange={v => setVal('drives', 'value', v)} />
+            <AdminParticipantChips playerItems={playerItems} excluded={bets.drives?.excluded || []} onToggle={id => toggleParticipant('drives', id)} />
+          </div>
+        )}
       </Row>
 
       <Row title="⛳ Putts">
         <Toggle checked={bets.putts.enabled} onChange={() => toggle('putts')} label="Putts" />
-        {bets.putts.enabled && <div className="mt-2"><NumberInput label="Valor por putt extra" value={bets.putts.valuePerPutt} onChange={v => setVal('putts', 'valuePerPutt', v)} /></div>}
+        {bets.putts.enabled && (
+          <div className="flex flex-col gap-2 mt-2">
+            <NumberInput label="Valor por putt extra" value={bets.putts.valuePerPutt} onChange={v => setVal('putts', 'valuePerPutt', v)} />
+            <AdminParticipantChips playerItems={playerItems} excluded={bets.putts?.excluded || []} onToggle={id => toggleParticipant('putts', id)} />
+          </div>
+        )}
       </Row>
 
       <Row title="🏆 Unidades">
@@ -159,13 +214,19 @@ function BetsEditor({ initialBets, roundType, code }) {
                 </div>
               </div>
             ))}
+            <AdminParticipantChips playerItems={playerItems} excluded={bets.units?.excluded || []} onToggle={id => toggleParticipant('units', id)} />
           </div>
         )}
       </Row>
 
       <Row title="🤙 Pinkies">
         <Toggle checked={bets.pinkies?.enabled} onChange={() => toggle('pinkies')} label="Pinkies" />
-        {bets.pinkies?.enabled && <div className="mt-2"><NumberInput label="Valor por pinky" value={bets.pinkies.value} onChange={v => setVal('pinkies', 'value', v)} /></div>}
+        {bets.pinkies?.enabled && (
+          <div className="flex flex-col gap-2 mt-2">
+            <NumberInput label="Valor por pinky" value={bets.pinkies.value} onChange={v => setVal('pinkies', 'value', v)} />
+            <AdminParticipantChips playerItems={playerItems} excluded={bets.pinkies?.excluded || []} onToggle={id => toggleParticipant('pinkies', id)} />
+          </div>
+        )}
       </Row>
 
       <Row title="💀 Penalidades">
@@ -183,6 +244,7 @@ function BetsEditor({ initialBets, roundType, code }) {
                 </div>
               </div>
             ))}
+            <AdminParticipantChips playerItems={playerItems} excluded={bets.penalties?.excluded || []} onToggle={id => toggleParticipant('penalties', id)} />
           </div>
         )}
       </Row>
@@ -661,7 +723,7 @@ export default function AdminScreen() {
           title="Configuración de apuestas"
           description="Cambia valores y activa/desactiva apuestas. Los cambios aplican inmediatamente a toda la ronda, incluyendo hoyos ya jugados."
         >
-          <BetsEditor initialBets={bets} roundType={roundType} code={code} />
+          <BetsEditor initialBets={bets} roundType={roundType} code={code} players={players} playerIds={playerIds} />
         </AdminSection>
 
         {/* Section 2: Re-edit holes (always expanded) */}

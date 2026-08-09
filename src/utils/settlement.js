@@ -1,6 +1,11 @@
 import { strokesOnHole, getMinHCP } from './handicap'
 import { detectUnits, UNIT_DEFAULTS, detectPenalties, PENALTY_DEFAULTS, calcMedals, calcPutts } from './gameLogic'
 
+function activePlayers(ids, betConfig) {
+  const excl = betConfig?.excluded || []
+  return excl.length === 0 ? ids : ids.filter(id => !excl.includes(id))
+}
+
 function holesComplete(holesMap, playerIds, predicate) {
   const relevant = Object.values(holesMap || {}).filter(predicate)
   return relevant.length > 0 && relevant.every(h =>
@@ -34,18 +39,19 @@ export function computeSettlement(round, voidedKeys = new Set()) {
   // ── LA MANO ────────────────────────────────────────────────────────────────
   if (bets?.mano?.enabled) {
     const val = bets.mano.valuePerHole || 0
+    const manoIds = activePlayers(playerIds, bets.mano)
     const manoEvents = round.manoEvents || []
     for (const ev of manoEvents) {
       if (ev.type === 'mano_win') {
-        const losers = playerIds.filter(id => id !== ev.winnerId)
+        const losers = manoIds.filter(id => id !== ev.winnerId)
         pay(losers, [ev.winnerId], ev.units * val * losers.length, `Mano hoyo ${ev.holeNum} (${ev.units} hoyos)`, 'mano', ev.units, null, `mano_win_${ev.holeNum}`)
       }
       if (ev.type === 'hole_win') {
-        const losers = playerIds.filter(id => id !== ev.winnerId)
+        const losers = manoIds.filter(id => id !== ev.winnerId)
         pay(losers, [ev.winnerId], val * losers.length, `Hoyo ${ev.holeNum}`, 'mano', 1, null, `mano_hole_${ev.holeNum}`)
       }
       if (ev.type === 'salvamento') {
-        const payers = playerIds.filter(id => id !== ev.receiverId && id !== ev.manoHolderId)
+        const payers = manoIds.filter(id => id !== ev.receiverId && id !== ev.manoHolderId)
         pay(payers, [ev.receiverId], val * payers.length, `Salvamento hoyo ${ev.holeNum}`, 'mano', 1, null, `mano_salvamento_${ev.holeNum}`)
       }
     }
@@ -54,13 +60,14 @@ export function computeSettlement(round, voidedKeys = new Set()) {
   // ── O'YES ──────────────────────────────────────────────────────────────────
   if (bets?.oyes?.enabled) {
     const oyesVal = bets.oyes.value || 0
+    const oyesIds = activePlayers(playerIds, bets.oyes)
     const oyesEvents = round.oyesEvents || []
     const zapato = oyesEvents.some(e => e.type === 'zapato')
     const multiplier = zapato ? 2 : 1
 
     for (const ev of oyesEvents) {
       if (ev.type === 'oyes_won') {
-        const losers = playerIds.filter(id => !ev.winners.includes(id))
+        const losers = oyesIds.filter(id => !ev.winners.includes(id))
         const totalPot = oyesVal * ev.units * losers.length * multiplier
         pay(losers, ev.winners, totalPot, `O'yes hoyo ${ev.holeNum}${ev.units > 1 ? ` (×${ev.units} acum.)` : ''}${zapato ? ' ×2 ZAPATO' : ''}`, 'oyes', 1, null, `oyes_${ev.holeNum}`)
       }
@@ -69,14 +76,16 @@ export function computeSettlement(round, voidedKeys = new Set()) {
 
   // ── MEDALS — solo se calculan cuando los 9/18 hoyos están completos ─────────
   if (bets?.medals?.enabled) {
-    const frontDone = holesComplete(holesMap, playerIds, h => h.n <= 9)
-    const backDone  = holesComplete(holesMap, playerIds, h => h.n >= 10)
+    const medalIds = activePlayers(playerIds, bets.medals)
+    const frontDone = holesComplete(holesMap, medalIds, h => h.n <= 9)
+    const backDone  = holesComplete(holesMap, medalIds, h => h.n >= 10)
 
     const holesWithScores = holes.map(h => ({
       ...h,
       scores: holesMap[h.n]?.scores || holesMap[String(h.n)]?.scores || {},
     }))
-    const medalResults = calcMedals(players, holesWithScores, roundType || '18')
+    const medalPlayers = Object.fromEntries(medalIds.map(id => [id, players[id]]))
+    const medalResults = calcMedals(medalPlayers, holesWithScores, roundType || '18')
 
     const completeness = { front: frontDone, back: backDone, total: frontDone && backDone }
     const medalValues = {
@@ -91,7 +100,7 @@ export function computeSettlement(round, voidedKeys = new Set()) {
       const val = medalValues[cat]
       if (!val) continue
       const winners   = result.winners
-      const losers    = playerIds.filter(id => !winners.includes(id))
+      const losers    = medalIds.filter(id => !winners.includes(id))
       const catTotals = result.totals || {}
       const scores    = Object.values(catTotals)
       const minScore  = scores.length ? Math.min(...scores) : 0
@@ -107,10 +116,11 @@ export function computeSettlement(round, voidedKeys = new Set()) {
   // ── DRIVES ─────────────────────────────────────────────────────────────────
   if (bets?.drives?.enabled) {
     const driveVal = bets.drives.value || 0
+    const drivesIds = activePlayers(playerIds, bets.drives)
     const driveEvents = round.driveEvents || []
     for (const ev of driveEvents) {
       if (ev.type === 'drive_won') {
-        const losers = playerIds.filter(id => id !== ev.winnerId)
+        const losers = drivesIds.filter(id => id !== ev.winnerId)
         pay(losers, [ev.winnerId], ev.totalValue * losers.length, `Drive hoyo ${ev.holeNum}${ev.totalValue > driveVal ? ` (acum. $${ev.totalValue})` : ''}`, 'drives', 1, null, `drives_${ev.holeNum}`)
       }
     }
@@ -118,14 +128,16 @@ export function computeSettlement(round, voidedKeys = new Set()) {
 
   // ── PUTTS — solo cuando todos los hoyos de la ronda están completos ─────────
   if (bets?.putts?.enabled) {
-    const allDone = holesComplete(holesMap, playerIds, () => true)
+    const puttsIds = activePlayers(playerIds, bets.putts)
+    const allDone = holesComplete(holesMap, puttsIds, () => true)
     if (allDone) {
       const puttVal = bets.putts.valuePerPutt || 0
       const holesWithScores = holes.map(h => ({
         ...h,
         scores: holesMap[h.n]?.scores || holesMap[String(h.n)]?.scores || {},
       }))
-      const { totalPutts, minPlayers, maxPlayers, min, max } = calcPutts(players, holesWithScores)
+      const puttsPlayerObj = Object.fromEntries(puttsIds.map(id => [id, players[id]]))
+      const { totalPutts, minPlayers, maxPlayers, min, max } = calcPutts(puttsPlayerObj, holesWithScores)
 
       if (max > min && maxPlayers.length > 0 && minPlayers.length > 0) {
         const totalAmount = max * puttVal
@@ -139,11 +151,12 @@ export function computeSettlement(round, voidedKeys = new Set()) {
   // ── CASTIGOS (Pinky, 4-Putts, ...) ──────────────────────────────────────────
   if (bets?.pinkies?.enabled) {
     const pinkVal = bets.pinkies.value || 0
+    const pinkiesIds = activePlayers(playerIds, bets.pinkies)
     const pinkiesEvents = round.pinkiesEvents || []
     const castigoLabel = { pinky: 'Pinky', fourPutt: '4 Putts' }
     for (const ev of pinkiesEvents) {
       if (ev.type === 'pinky') {
-        const others = playerIds.filter(id => id !== ev.playerId)
+        const others = pinkiesIds.filter(id => id !== ev.playerId)
         const label = castigoLabel[ev.subtype] || 'Pinky'
         pay([ev.playerId], others, pinkVal * others.length, `${label} hoyo ${ev.holeNum} — ${players[ev.playerId]?.name}`, 'pinkies', 1, null, `pinkies_${ev.holeNum}_${ev.playerId}`)
       }
@@ -154,17 +167,18 @@ export function computeSettlement(round, voidedKeys = new Set()) {
   if (bets?.units?.enabled) {
     const unitValues = { ...UNIT_DEFAULTS, ...(bets.units || {}) }
     const baseVal = bets.units.baseValue || 50
+    const unitsIds = activePlayers(playerIds, bets.units)
 
     for (const hole of holes) {
       const holeScores = holesMap[hole.n]?.scores || holesMap[String(hole.n)]?.scores || {}
-      for (const id of playerIds) {
+      for (const id of unitsIds) {
         const s = holeScores[id]
         if (!s || s.gross == null) continue
         const achieved = detectUnits(s.gross, hole.par, s.inBunker, s.chipIn)
         for (const unit of achieved) {
           const multiplier = unitValues[unit] || 1
-          const amount = baseVal * multiplier * (playerIds.length - 1)
-          const losers = playerIds.filter(pid => pid !== id)
+          const amount = baseVal * multiplier * (unitsIds.length - 1)
+          const losers = unitsIds.filter(pid => pid !== id)
           pay(losers, [id], amount, `${unitLabel(unit)} hoyo ${hole.n} — ${players[id].name}`, 'units', 1, null, `units_${hole.n}_${id}_${unit}`)
         }
       }
@@ -175,17 +189,18 @@ export function computeSettlement(round, voidedKeys = new Set()) {
   if (bets?.penalties?.enabled) {
     const penaltyValues = { ...PENALTY_DEFAULTS, ...(bets.penalties || {}) }
     const baseVal = bets.penalties.baseValue || 0
+    const penaltiesIds = activePlayers(playerIds, bets.penalties)
 
     for (const hole of holes) {
       const holeScores = holesMap[hole.n]?.scores || holesMap[String(hole.n)]?.scores || {}
-      for (const id of playerIds) {
+      for (const id of penaltiesIds) {
         const s = holeScores[id]
         if (!s || s.gross == null) continue
         const achieved = detectPenalties(s.putts, s.stuckInBunker, s.leftGreen, s.whiff)
         for (const penalty of achieved) {
           const multiplier = penaltyValues[penalty] || 1
-          const amount = baseVal * multiplier * (playerIds.length - 1)
-          const others = playerIds.filter(pid => pid !== id)
+          const amount = baseVal * multiplier * (penaltiesIds.length - 1)
+          const others = penaltiesIds.filter(pid => pid !== id)
           pay([id], others, amount, `${penaltyLabel(penalty)} hoyo ${hole.n} — ${players[id].name}`, 'penalties', 1, null, `penalties_${hole.n}_${id}_${penalty}`)
         }
       }

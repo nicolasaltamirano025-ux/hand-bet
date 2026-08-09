@@ -198,6 +198,15 @@ export default function GameScreen() {
     updateScore(playerId, 'oyesClosest', !pendingScore[playerId]?.oyesClosest)
   }
 
+  function setClosestSecondShot(playerId) {
+    setPendingScore(prev => {
+      const next = { ...prev }
+      for (const pid of playerIds) next[pid] = { ...next[pid], closestSecondShot: false }
+      if (!prev[playerId]?.closestSecondShot) next[playerId] = { ...next[playerId], closestSecondShot: true }
+      return next
+    })
+  }
+
   // ── Navigation with validation ────────────────────────────────────────────
   function handleNext() {
     if (!isCreator) { navigate(); return }
@@ -291,6 +300,12 @@ export default function GameScreen() {
 
     const celebrationsToFire = []
 
+    const manoActive     = playerIds.filter(id => !(bets.mano?.excluded     || []).includes(id))
+    const oyesActive     = playerIds.filter(id => !(bets.oyes?.excluded     || []).includes(id))
+    const unitsActive    = playerIds.filter(id => !(bets.units?.excluded    || []).includes(id))
+    const pinkiesActive  = playerIds.filter(id => !(bets.pinkies?.excluded  || []).includes(id))
+    const penaltiesActive= playerIds.filter(id => !(bets.penalties?.excluded|| []).includes(id))
+
     // Save scores
     for (const id of playerIds) {
       const s = pendingScore[id] || {}
@@ -321,7 +336,7 @@ export default function GameScreen() {
 
     // ── Mano ───────────────────────────────────────────────────────────────
     if (bets.mano?.enabled) {
-      const validIds = playerIds.filter(id => pendingScore[id]?.gross != null)
+      const validIds = manoActive.filter(id => pendingScore[id]?.gross != null)
 
       if (validIds.length > 0) {
         const grossScores = Object.fromEntries(validIds.map(id => [id, pendingScore[id].gross]))
@@ -384,15 +399,25 @@ export default function GameScreen() {
       let oyesSt = rebuildOyesState(prevOyesEvents)
       const newOyesEvents = [...prevOyesEvents]
 
-      const eligible = playerIds.filter(id => {
+      const eligible = oyesActive.filter(id => {
         const s = pendingScore[id]
         return s?.gross != null && s.gross <= par && s?.onGreenFirstShot === true
       })
-      const qualifiedClosest = playerIds.filter(id => pendingScore[id]?.oyesClosest && eligible.includes(id))
+      const qualifiedClosest = oyesActive.filter(id => pendingScore[id]?.oyesClosest && eligible.includes(id))
 
       if (eligible.length === 0) {
-        oyesSt.accumulated += 1
-        newOyesEvents.push({ type: 'oyes_accumulated', holeNum, newTotal: oyesSt.accumulated })
+        const secondWinner = oyesSt.accumulated >= 3
+          ? oyesActive.find(id => pendingScore[id]?.closestSecondShot && pendingScore[id]?.gross != null && pendingScore[id].gross <= par)
+          : null
+        if (secondWinner) {
+          const totalUnits = oyesSt.accumulated + 1
+          oyesSt.accumulated = 0
+          newOyesEvents.push({ type: 'oyes_won', winners: [secondWinner], holeNum, units: totalUnits, wasAccumulated: true })
+          celebrationsToFire.push({ type: 'oyes', name: players[secondWinner]?.name })
+        } else {
+          oyesSt.accumulated += 1
+          newOyesEvents.push({ type: 'oyes_accumulated', holeNum, newTotal: oyesSt.accumulated })
+        }
       } else {
         const winners = qualifiedClosest.length > 0 ? qualifiedClosest : eligible
         const totalUnits = oyesSt.accumulated + 1
@@ -441,7 +466,7 @@ export default function GameScreen() {
     // ── Units ──────────────────────────────────────────────────────────────
     if (bets.units?.enabled) {
       const newUnitsEvents = [...prevUnitsEvents]
-      for (const id of playerIds) {
+      for (const id of unitsActive) {
         const s = pendingScore[id]
         if (!s || s.gross == null) continue
         const achieved = detectUnits(s.gross, par, s.inBunker, s.chipIn)
@@ -453,7 +478,7 @@ export default function GameScreen() {
     // ── Castigos (Pinky, 4-Putts, ...) ──────────────────────────────────────────
     if (bets.pinkies?.enabled) {
       const newPinkiesEvents = [...prevPinkiesEvents]
-      for (const id of playerIds) {
+      for (const id of pinkiesActive) {
         const s = pendingScore[id]
         if (!s || s.gross == null) continue
         if (s.pinky) {
@@ -471,7 +496,7 @@ export default function GameScreen() {
     // ── Penalties (unidades negativas) ──────────────────────────────────────
     if (bets.penalties?.enabled) {
       const newPenaltiesEvents = [...prevPenaltiesEvents]
-      for (const id of playerIds) {
+      for (const id of penaltiesActive) {
         const s = pendingScore[id]
         if (!s || s.gross == null) continue
         const achieved = detectPenalties(s.putts, s.stuckInBunker, s.leftGreen, s.whiff)
@@ -567,6 +592,9 @@ export default function GameScreen() {
               onChange={(field, val) => updateScore(id, field, val)}
               onSetDriveWinner={() => setDriveWinner(id)}
               onSetOyesClosest={() => setOyesClosest(id)}
+              onSetClosestSecondShot={() => setClosestSecondShot(id)}
+              isManoHolder={manoState.holderId === id}
+              oyesAccumulated={round.oyesState?.accumulated || 0}
               onPropose={id === localPlayerId ? handlePropose : undefined}
               onAcceptProposal={isCreator ? () => handleAcceptProposal(id) : undefined}
               onRejectProposal={isCreator ? () => handleRejectProposal(id) : undefined}
@@ -715,7 +743,7 @@ const CASTIGOS = [
   { key: 'fourPutt', emoji: '🐌', label: '4 Putts',  desc: '4 o más putts en este hoyo' },
 ]
 
-function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyCard, proposal, myPendingProposal, minHCP, referenceName, onChange, onSetDriveWinner, onSetOyesClosest, onPropose, onAcceptProposal, onRejectProposal }) {
+function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyCard, proposal, myPendingProposal, minHCP, referenceName, isManoHolder, oyesAccumulated, onChange, onSetDriveWinner, onSetOyesClosest, onSetClosestSecondShot, onPropose, onAcceptProposal, onRejectProposal }) {
   const { tr } = useLanguage()
   const [showCastigos, setShowCastigos] = useState(false)
   const canEdit = isCreator || isMyCard
@@ -750,7 +778,7 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
   }, [bets.pinkies?.enabled, score.putts])
 
   return (
-    <div className="bg-surface border border-border rounded-xl p-4">
+    <div className={`bg-surface border rounded-xl p-4 ${isManoHolder ? 'border-gold ring-1 ring-gold/30' : 'border-border'}`}>
       {/* Creator sees pending proposal from this player */}
       {proposal && (
         <div className="bg-yellow-900/30 border border-yellow-700/60 rounded-lg px-3 py-2 mb-3 flex items-center justify-between gap-2">
@@ -820,6 +848,9 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
                   <Chip active={score.onGreenFirstShot} onClick={() => onChange('onGreenFirstShot', !score.onGreenFirstShot)} label={tr.onGreenFirstShot} />
                   {score.onGreenFirstShot && (
                     <Chip active={score.oyesClosest} onClick={onSetOyesClosest} label={tr.closest} />
+                  )}
+                  {oyesAccumulated >= 3 && (
+                    <Chip active={score.closestSecondShot} onClick={onSetClosestSecondShot} label="Más cerca 2do" />
                   )}
                 </>
               )}

@@ -4,8 +4,9 @@ import Toggle from '../../components/ui/Toggle'
 import NumberInput from '../../components/ui/NumberInput'
 import { useLanguage } from '../../i18n'
 
-export default function Step4Bets({ bets, setBets, roundType, next, back }) {
+export default function Step4Bets({ bets, setBets, roundType, players = [], next, back }) {
   const { tr } = useLanguage()
+  const playerItems = players.map((p, i) => ({ id: `p${i + 1}`, name: p.name || `Jugador ${i + 1}` }))
 
   const UNIT_KEYS = [
     { key: 'birdie',    label: tr.birdie.replace('🦅 ', ''),      def: 1,  emoji: '🦅' },
@@ -31,6 +32,14 @@ export default function Step4Bets({ bets, setBets, roundType, next, back }) {
     setBets(b => ({ ...b, [section]: { ...b[section], [field]: val } }))
   }
 
+  function toggleParticipant(betKey, playerId) {
+    setBets(b => {
+      const excl = b[betKey]?.excluded || []
+      const newExcl = excl.includes(playerId) ? excl.filter(id => id !== playerId) : [...excl, playerId]
+      return { ...b, [betKey]: { ...b[betKey], excluded: newExcl } }
+    })
+  }
+
   return (
     <div className="flex flex-col px-5 pt-10 pb-8 gap-6">
       <button onClick={back} className="text-gray-400 text-sm self-start">{tr.backStep}</button>
@@ -42,14 +51,20 @@ export default function Step4Bets({ bets, setBets, roundType, next, back }) {
       <Section title="🤜 La Mano">
         <Toggle checked={bets.mano.enabled} onChange={() => toggle('mano')} label="La Mano" description={tr.manoDesc} />
         {bets.mano.enabled && (
-          <NumberInput label={tr.valuePerHole} value={bets.mano.valuePerHole} onChange={v => setVal('mano', 'valuePerHole', v)} />
+          <>
+            <NumberInput label={tr.valuePerHole} value={bets.mano.valuePerHole} onChange={v => setVal('mano', 'valuePerHole', v)} />
+            <ParticipantChips playerItems={playerItems} excluded={bets.mano?.excluded || []} onToggle={id => toggleParticipant('mano', id)} />
+          </>
         )}
       </Section>
 
       <Section title="📍 O'yes">
         <Toggle checked={bets.oyes.enabled} onChange={() => toggle('oyes')} label="O'yes" description={tr.oyesDesc} />
         {bets.oyes.enabled && (
-          <NumberInput label={tr.valuePerOyes} value={bets.oyes.value} onChange={v => setVal('oyes', 'value', v)} />
+          <>
+            <NumberInput label={tr.valuePerOyes} value={bets.oyes.value} onChange={v => setVal('oyes', 'value', v)} />
+            <ParticipantChips playerItems={playerItems} excluded={bets.oyes?.excluded || []} onToggle={id => toggleParticipant('oyes', id)} />
+          </>
         )}
       </Section>
 
@@ -66,6 +81,7 @@ export default function Step4Bets({ bets, setBets, roundType, next, back }) {
             {roundType === '18' && (
               <NumberInput label="Total" value={bets.medals.totalValue} onChange={v => setVal('medals', 'totalValue', v)} />
             )}
+            <ParticipantChips playerItems={playerItems} excluded={bets.medals?.excluded || []} onToggle={id => toggleParticipant('medals', id)} />
           </div>
         )}
       </Section>
@@ -73,14 +89,20 @@ export default function Step4Bets({ bets, setBets, roundType, next, back }) {
       <Section title="💨 Drives">
         <Toggle checked={bets.drives.enabled} onChange={() => toggle('drives')} label="Drives" description={tr.drivesDesc} />
         {bets.drives.enabled && (
-          <NumberInput label={tr.valuePerHole} value={bets.drives.value} onChange={v => setVal('drives', 'value', v)} />
+          <>
+            <NumberInput label={tr.valuePerHole} value={bets.drives.value} onChange={v => setVal('drives', 'value', v)} />
+            <ParticipantChips playerItems={playerItems} excluded={bets.drives?.excluded || []} onToggle={id => toggleParticipant('drives', id)} />
+          </>
         )}
       </Section>
 
       <Section title="⛳ Putts">
         <Toggle checked={bets.putts.enabled} onChange={() => toggle('putts')} label="Putts" description={tr.puttsDesc} />
         {bets.putts.enabled && (
-          <NumberInput label={tr.valuePerPutt} value={bets.putts.valuePerPutt} onChange={v => setVal('putts', 'valuePerPutt', v)} />
+          <>
+            <NumberInput label={tr.valuePerPutt} value={bets.putts.valuePerPutt} onChange={v => setVal('putts', 'valuePerPutt', v)} />
+            <ParticipantChips playerItems={playerItems} excluded={bets.putts?.excluded || []} onToggle={id => toggleParticipant('putts', id)} />
+          </>
         )}
       </Section>
 
@@ -99,6 +121,7 @@ export default function Step4Bets({ bets, setBets, roundType, next, back }) {
                 </div>
               </div>
             ))}
+            <ParticipantChips playerItems={playerItems} excluded={bets.units?.excluded || []} onToggle={id => toggleParticipant('units', id)} />
           </div>
         )}
       </Section>
@@ -106,7 +129,10 @@ export default function Step4Bets({ bets, setBets, roundType, next, back }) {
       <Section title={`⚠️ ${tr.pinkiesLabel}`}>
         <Toggle checked={bets.pinkies.enabled} onChange={() => toggle('pinkies')} label={tr.pinkiesLabel} description={tr.pinkiesDesc} />
         {bets.pinkies.enabled && (
-          <NumberInput label={tr.valuePerPinky} value={bets.pinkies.value} onChange={v => setVal('pinkies', 'value', v)} />
+          <>
+            <NumberInput label={tr.valuePerPinky} value={bets.pinkies.value} onChange={v => setVal('pinkies', 'value', v)} />
+            <ParticipantChips playerItems={playerItems} excluded={bets.pinkies?.excluded || []} onToggle={id => toggleParticipant('pinkies', id)} />
+          </>
         )}
       </Section>
 
@@ -125,6 +151,7 @@ export default function Step4Bets({ bets, setBets, roundType, next, back }) {
                 </div>
               </div>
             ))}
+            <ParticipantChips playerItems={playerItems} excluded={bets.penalties?.excluded || []} onToggle={id => toggleParticipant('penalties', id)} />
           </div>
         )}
       </Section>
@@ -150,6 +177,29 @@ function MultiplierInput({ value, onChange }) {
       }}
       className="bg-surface border border-border rounded-lg px-2 py-1.5 text-white text-center w-16 outline-none text-sm focus:border-gold"
     />
+  )
+}
+
+function ParticipantChips({ playerItems, excluded, onToggle }) {
+  if (playerItems.length < 2) return null
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-gray-500 text-xs">Participantes</span>
+      <div className="flex flex-wrap gap-1.5">
+        {playerItems.map(({ id, name }) => {
+          const active = !excluded.includes(id)
+          return (
+            <button
+              key={id}
+              onClick={() => onToggle(id)}
+              className={`text-xs px-3 py-1 rounded-full border font-medium transition-colors ${active ? 'border-gold bg-gold/15 text-gold' : 'border-border text-gray-500'}`}
+            >
+              {name}
+            </button>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 

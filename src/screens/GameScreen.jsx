@@ -117,6 +117,8 @@ export default function GameScreen() {
       let changed = false
       const updated = { ...prev }
       for (const id of playerIds) {
+        // Don't override the local non-admin player's own card — they're editing it locally
+        if (!isCreator && id === localPlayerId) continue
         const fb = firebaseScores[id]
         if (fb && JSON.stringify(fb) !== JSON.stringify(prev[id])) {
           updated[id] = { ...fb }
@@ -169,6 +171,12 @@ export default function GameScreen() {
   async function handlePropose() {
     if (!localPlayerId || !currentHole) return
     const score = pendingScore[localPlayerId] || {}
+    // Write to official scores so others see it, and to pendingScores for conflict tracking
+    const updates = {}
+    for (const [field, val] of Object.entries(score)) {
+      updates[`holes/${currentHole.n}/scores/${localPlayerId}/${field}`] = val
+    }
+    await updateRoundDeep(code, updates)
     await proposePendingScore(code, currentHole.n, localPlayerId, score)
   }
 
@@ -186,11 +194,9 @@ export default function GameScreen() {
 
   function updateScore(playerId, field, value) {
     setPendingScore(prev => ({ ...prev, [playerId]: { ...prev[playerId], [field]: value } }))
+    // Non-admin players editing their own card: local state only until "Guardar"
+    if (!isCreator && playerId === localPlayerId) return
     updateRoundDeep(code, { [`holes/${currentHole.n}/scores/${playerId}/${field}`]: value })
-    // Preserve player's own self-report for conflict detection
-    if (playerId === localPlayerId && (field === 'gross' || field === 'putts')) {
-      updateRoundDeep(code, { [`holes/${currentHole.n}/pendingScores/${playerId}/${field}`]: value })
-    }
   }
 
   function setDriveWinner(playerId) {
@@ -946,6 +952,15 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
               ))}
             </div>
           </Modal>
+
+          {onPropose && (
+            <button
+              onClick={onPropose}
+              className="w-full mt-2 py-3 rounded-xl bg-gold text-bg font-bold text-sm active:opacity-80"
+            >
+              Guardar mi score
+            </button>
+          )}
 
         </div>
       ) : (

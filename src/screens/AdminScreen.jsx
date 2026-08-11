@@ -303,6 +303,7 @@ const EVENT_LABELS = {
   mano_accumulated: 'Mano acumulada',
   mano_taken: 'Mano tomada',
   mano_win: 'Mano ganada',
+  mano_reset: 'Reset admin',
   hole_win: 'Hoyo ganado',
   salvamento: 'Salvamento',
   oyes_accumulated: "O'yes acumulado",
@@ -380,8 +381,16 @@ function StateOverride({ round, players, playerIds, code }) {
 
   async function handleSaveState() {
     setSaving(true)
+    // Inject a mano_reset event so the override survives future hole re-saves
+    // (saveHole rebuilds manoState from events, ignoring the stored manoState field)
+    const resetEvent = { type: 'mano_reset', holderId: mano.holderId ?? null, isOpen: mano.isOpen, accumulated: mano.accumulated }
+    const newMEvents = [...mEvents, resetEvent]
+    const rebuiltMano = rebuildManoState(newMEvents)
+    setMEvents(newMEvents)
+    setMano(rebuiltMano)
     await updateRoundDeep(code, {
-      manoState: mano,
+      manoState: rebuiltMano,
+      manoEvents: newMEvents,
       oyesState: oyes,
       drivesAccumulated: drives,
     })

@@ -113,6 +113,25 @@ export default function GameScreen() {
     setPendingScore(existing)
   }, [currentHoleIdx])
 
+  // Live-sync other players' score changes from Firebase into local pendingScore
+  useEffect(() => {
+    if (!currentHole) return
+    const firebaseScores = round?.holes?.[currentHole.n]?.scores
+    if (!firebaseScores) return
+    setPendingScore(prev => {
+      let changed = false
+      const updated = { ...prev }
+      for (const id of playerIds) {
+        const fb = firebaseScores[id]
+        if (fb && JSON.stringify(fb) !== JSON.stringify(prev[id])) {
+          updated[id] = { ...fb }
+          changed = true
+        }
+      }
+      return changed ? updated : prev
+    })
+  }, [round?.holes?.[currentHole?.n]?.scores]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Mark the existing celebration ts as "already seen" on first load to avoid replaying old events
   useEffect(() => {
     if (celebrationInitialized.current || !round?.celebration?.ts) return
@@ -171,24 +190,28 @@ export default function GameScreen() {
   }
 
   function updateScore(playerId, field, value) {
-    setPendingScore(prev => ({
-      ...prev,
-      [playerId]: { ...prev[playerId], [field]: value },
-    }))
+    setPendingScore(prev => ({ ...prev, [playerId]: { ...prev[playerId], [field]: value } }))
+    updateRoundDeep(code, { [`holes/${currentHole.n}/scores/${playerId}/${field}`]: value })
   }
 
   function setDriveWinner(playerId) {
     const isAlreadyWinner = pendingScore[playerId]?.driveWinner
     setPendingScore(prev => {
       const next = { ...prev }
-      for (const pid of playerIds) {
-        next[pid] = { ...next[pid], driveWinner: false, inFairway: false }
-      }
-      if (!isAlreadyWinner) {
-        next[playerId] = { ...next[playerId], driveWinner: true, inFairway: true }
-      }
+      for (const pid of playerIds) next[pid] = { ...next[pid], driveWinner: false, inFairway: false }
+      if (!isAlreadyWinner) next[playerId] = { ...next[playerId], driveWinner: true, inFairway: true }
       return next
     })
+    const updates = {}
+    for (const pid of playerIds) {
+      updates[`holes/${currentHole.n}/scores/${pid}/driveWinner`] = false
+      updates[`holes/${currentHole.n}/scores/${pid}/inFairway`] = false
+    }
+    if (!isAlreadyWinner) {
+      updates[`holes/${currentHole.n}/scores/${playerId}/driveWinner`] = true
+      updates[`holes/${currentHole.n}/scores/${playerId}/inFairway`] = true
+    }
+    updateRoundDeep(code, updates)
   }
 
   function setOyesClosest(playerId) {
@@ -199,12 +222,17 @@ export default function GameScreen() {
   }
 
   function setClosestSecondShot(playerId) {
+    const toggling = !pendingScore[playerId]?.closestSecondShot
     setPendingScore(prev => {
       const next = { ...prev }
       for (const pid of playerIds) next[pid] = { ...next[pid], closestSecondShot: false }
-      if (!prev[playerId]?.closestSecondShot) next[playerId] = { ...next[playerId], closestSecondShot: true }
+      if (toggling) next[playerId] = { ...next[playerId], closestSecondShot: true }
       return next
     })
+    const updates = {}
+    for (const pid of playerIds) updates[`holes/${currentHole.n}/scores/${pid}/closestSecondShot`] = false
+    if (toggling) updates[`holes/${currentHole.n}/scores/${playerId}/closestSecondShot`] = true
+    updateRoundDeep(code, updates)
   }
 
   // ── Navigation with validation ────────────────────────────────────────────

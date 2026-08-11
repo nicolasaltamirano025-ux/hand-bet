@@ -706,7 +706,7 @@ export default function GameScreen() {
         </Modal>
       )}
       {validation && validation.type === 'oyes_reminder' && (
-        <Modal open onClose={() => saveAndNavigate()} title={tr.oyesReminderTitle}>
+        <Modal open onClose={() => setValidation(null)} title={tr.oyesReminderTitle}>
           <p className="text-gray-300 text-sm mb-5">{tr.oyesReminderMsg}</p>
           <div className="flex gap-3">
             <Button onClick={() => setValidation(null)} variant="outline" className="flex-1">{tr.reviewBtn}</Button>
@@ -715,7 +715,7 @@ export default function GameScreen() {
         </Modal>
       )}
       {validation && validation.type === 'drive_reminder' && (
-        <Modal open onClose={() => saveAndNavigate()} title={tr.driveReminderTitle}>
+        <Modal open onClose={() => setValidation(null)} title={tr.driveReminderTitle}>
           <p className="text-gray-300 text-sm mb-5">{tr.driveReminderMsg}</p>
           <div className="flex gap-3">
             <Button onClick={saveAndNavigate} variant="outline" className="flex-1">{tr.driveAccumulatesBtn}</Button>

@@ -209,8 +209,6 @@ export default function GameScreen() {
 
   // ── Navigation with validation ────────────────────────────────────────────
   function handleNext() {
-    if (!isCreator) { navigate(); return }
-
     const missingNames = playerIds
       .filter(id => pendingScore[id]?.gross == null)
       .map(id => players[id]?.name)
@@ -276,7 +274,7 @@ export default function GameScreen() {
   // Called when validation passes or user confirms "continue anyway"
   async function saveAndNavigate() {
     setValidation(null)
-    if (isCreator && !savingRef.current) await saveHole()
+    if (!savingRef.current) await saveHole()
     navigate()
   }
 
@@ -289,7 +287,7 @@ export default function GameScreen() {
 
   // ── Save ─────────────────────────────────────────────────────────────────
   async function saveHole() {
-    if (!isCreator || savingRef.current) return
+    if (savingRef.current) return
     savingRef.current = true
     setSaving(true)
 
@@ -745,7 +743,7 @@ const CASTIGOS = [
 function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyCard, proposal, myPendingProposal, minHCP, referenceName, isManoHolder, oyesAccumulated, onChange, onSetDriveWinner, onSetOyesClosest, onSetClosestSecondShot, onPropose, onAcceptProposal, onRejectProposal }) {
   const { tr } = useLanguage()
   const [showCastigos, setShowCastigos] = useState(false)
-  const canEdit = isCreator || isMyCard
+  const canEdit = true
   const strokes = strokesOnHole(player.handicap - minHCP, hole.si)
   const gross = score.gross
   const net = gross != null ? gross - strokes : null
@@ -837,7 +835,7 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
             </div>
           )}
 
-          {isCreator && (
+          {(
             <div className="flex flex-wrap gap-2 mt-1">
               {(hole.par === 4 || hole.par === 5) && bets.drives?.enabled && (
                 <Chip active={score.driveWinner} onClick={onSetDriveWinner} label={tr.drive} />
@@ -909,19 +907,6 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
             </div>
           </Modal>
 
-          {isMyCard && (
-            <div className="flex items-center gap-2 pt-1">
-              <button
-                onClick={onPropose}
-                className="flex-1 py-2 rounded-xl border border-gold/50 text-gold text-sm font-semibold active:bg-gold/10"
-              >
-                {tr.proposarScore}
-              </button>
-              {myPendingProposal && (
-                <span className="text-yellow-400 text-xs">{tr.esperandoValidacion}</span>
-              )}
-            </div>
-          )}
         </div>
       ) : (
         <div className="flex gap-4 text-sm text-gray-400">

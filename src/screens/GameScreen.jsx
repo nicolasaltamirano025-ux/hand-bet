@@ -103,12 +103,7 @@ export default function GameScreen() {
     if (!currentHole) return
     const existing = {}
     for (const id of playerIds) {
-      const official = round?.holes?.[currentHole.n]?.scores?.[id] || {}
-      const proposal = round?.holes?.[currentHole.n]?.pendingScores?.[id] || {}
-      // For own card (non-creator), pre-load their pending proposal if they have one
-      existing[id] = (id === localPlayerId && Object.keys(proposal).length > 0)
-        ? { ...proposal }
-        : { ...official }
+      existing[id] = { ...(round?.holes?.[currentHole.n]?.scores?.[id] || {}) }
     }
     setPendingScore(existing)
   }, [currentHoleIdx])
@@ -192,6 +187,10 @@ export default function GameScreen() {
   function updateScore(playerId, field, value) {
     setPendingScore(prev => ({ ...prev, [playerId]: { ...prev[playerId], [field]: value } }))
     updateRoundDeep(code, { [`holes/${currentHole.n}/scores/${playerId}/${field}`]: value })
+    // Preserve player's own self-report for conflict detection
+    if (playerId === localPlayerId && (field === 'gross' || field === 'putts')) {
+      updateRoundDeep(code, { [`holes/${currentHole.n}/pendingScores/${playerId}/${field}`]: value })
+    }
   }
 
   function setDriveWinner(playerId) {
@@ -610,8 +609,8 @@ export default function GameScreen() {
               bets={bets}
               isCreator={isCreator}
               isMyCard={!isCreator && id === localPlayerId}
-              proposal={isCreator ? (holeProposals[id] || null) : null}
-              myPendingProposal={!isCreator && id === localPlayerId ? (holeProposals[id] || null) : null}
+              proposal={holeProposals[id] || null}
+              myPendingProposal={null}
               minHCP={minHCP}
               referenceName={referenceName}
               onChange={(field, val) => updateScore(id, field, val)}
@@ -621,8 +620,8 @@ export default function GameScreen() {
               isManoHolder={manoState.holderId === id}
               oyesAccumulated={round.oyesState?.accumulated || 0}
               onPropose={id === localPlayerId ? handlePropose : undefined}
-              onAcceptProposal={isCreator ? () => handleAcceptProposal(id) : undefined}
-              onRejectProposal={isCreator ? () => handleRejectProposal(id) : undefined}
+              onAcceptProposal={() => handleAcceptProposal(id)}
+              onRejectProposal={() => handleRejectProposal(id)}
             />
           ))}
         </div>
@@ -802,18 +801,31 @@ function PlayerScoreCard({ player, playerId, score, hole, bets, isCreator, isMyC
     if ((score.putts ?? 0) >= 4 && !score.fourPutt) onChange('fourPutt', true)
   }, [bets.pinkies?.enabled, score.putts])
 
+  const hasConflict = proposal != null && (
+    (proposal.gross != null && proposal.gross !== score.gross) ||
+    (proposal.putts != null && proposal.putts !== score.putts)
+  )
+  const borderClass = hasConflict
+    ? 'border-orange-500 ring-1 ring-orange-500/30'
+    : isManoHolder ? 'border-gold ring-1 ring-gold/30' : 'border-border'
+
   return (
-    <div className={`bg-surface border rounded-xl p-4 ${isManoHolder ? 'border-gold ring-1 ring-gold/30' : 'border-border'}`}>
-      {/* Creator sees pending proposal from this player */}
-      {proposal && (
-        <div className="bg-yellow-900/30 border border-yellow-700/60 rounded-lg px-3 py-2 mb-3 flex items-center justify-between gap-2">
-          <div>
-            <span className="text-yellow-300 text-xs font-semibold block">{tr.scorePropuesto}</span>
-            <span className="text-yellow-100 text-xs">Score: {proposal.gross ?? '—'} · Putts: {proposal.putts ?? '—'}</span>
-          </div>
-          <div className="flex gap-1.5 shrink-0">
-            <button onClick={onAcceptProposal} className="text-green-400 text-xs border border-green-700 rounded-lg px-2.5 py-1 font-semibold active:bg-green-900/30">{tr.aceptar}</button>
-            <button onClick={onRejectProposal} className="text-red-400 text-xs border border-red-700 rounded-lg px-2.5 py-1 font-semibold active:bg-red-900/30">{tr.rechazar}</button>
+    <div className={`bg-surface border rounded-xl p-4 ${borderClass}`}>
+      {hasConflict && (
+        <div className="bg-orange-900/30 border border-orange-600/60 rounded-lg px-3 py-2 mb-3">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <span className="text-orange-300 text-xs font-semibold">⚠️ Discrepancia</span>
+              <p className="text-orange-100 text-xs mt-0.5">
+                Jugador: {proposal.gross ?? '—'} ({proposal.putts ?? '—'}p)
+                <span className="text-gray-500 mx-1">vs</span>
+                Actual: {score.gross ?? '—'} ({score.putts ?? '—'}p)
+              </p>
+            </div>
+            <div className="flex gap-1.5 shrink-0">
+              <button onClick={onAcceptProposal} className="text-green-400 text-xs border border-green-700 rounded-lg px-2 py-1 font-semibold active:bg-green-900/30">Usar jugador</button>
+              <button onClick={onRejectProposal} className="text-gray-400 text-xs border border-gray-600 rounded-lg px-2 py-1 font-semibold active:bg-gray-800/30">Mantener</button>
+            </div>
           </div>
         </div>
       )}

@@ -345,7 +345,7 @@ export function rebuildManoState(events) {
   let s = { holderId: null, isOpen: false, accumulated: 0 }
   for (const e of events) {
     if (e.type === 'mano_open')             s = { holderId: null, isOpen: true, accumulated: 1 }
-    else if (e.type === 'mano_accumulated') s = { ...s, accumulated: e.newTotal }
+    else if (e.type === 'mano_accumulated') s = { ...s, accumulated: e.newTotal, holderId: null }
     else if (e.type === 'mano_taken')       s = { holderId: e.holderId, isOpen: true, accumulated: e.newTotal }
     else if (e.type === 'mano_win' || e.type === 'hole_win') s = { holderId: null, isOpen: false, accumulated: 0 }
   }

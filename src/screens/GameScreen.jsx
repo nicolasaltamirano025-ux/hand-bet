@@ -378,10 +378,9 @@ export default function GameScreen() {
               newManoEvents.push({ type: 'salvamento', receiverId: other, holeNum, accumulated: mState.accumulated, manoHolderId: mState.holderId })
               celebrationsToFire.push({ type: 'salvamento', name: players[other]?.name })
             }
-            // If current holder is not among the tied players, they lose the mano
-            const holderSurvives = !mState.holderId || winners.includes(mState.holderId)
+            // Tie always clears the holder — la mano se abre
             mState = {
-              holderId: holderSurvives ? mState.holderId : null,
+              holderId: null,
               isOpen: true,
               accumulated: totalAcc,
             }

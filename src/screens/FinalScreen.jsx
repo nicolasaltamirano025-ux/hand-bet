@@ -6,7 +6,7 @@ import { generateShareImage } from '../utils/shareImage'
 import { useLanguage } from '../i18n'
 import { useAuth } from '../contexts/AuthContext'
 import { recordRoundResult } from '../firebase/userService'
-import { voidEvent, unvoidEvent } from '../firebase/roundsService'
+import { voidEvent, unvoidEvent, updateRoundDeep } from '../firebase/roundsService'
 
 const fmt = n => `$${Math.abs(Number(n || 0)).toLocaleString('es-MX')}`
 
@@ -17,6 +17,7 @@ export default function FinalScreen() {
   const { user } = useAuth()
   const { round, loading } = useRound(code)
   const [sharing, setSharing] = useState(false)
+  const [showAddBenefit, setShowAddBenefit] = useState(false)
   const recordedRef = useRef(false)
 
   useEffect(() => {
@@ -142,13 +143,24 @@ export default function FinalScreen() {
           </div>
         )}
 
-        {items.length > 0 && (
+        {(items.length > 0 || isCreator) && (
           <BetBreakdown
             items={items}
             players={players}
             isCreator={isCreator}
             onVoid={key => voidEvent(code, key)}
             onUnvoid={key => unvoidEvent(code, key)}
+            onAddBenefit={isCreator ? () => setShowAddBenefit(true) : null}
+          />
+        )}
+
+        {showAddBenefit && (
+          <AddBenefitModal
+            round={round}
+            code={code}
+            players={players}
+            playerIds={playerIds}
+            onClose={() => setShowAddBenefit(false)}
           />
         )}
       </div>
@@ -223,7 +235,7 @@ function getPlayerGroups(type, typeItems) {
   return byPlayer
 }
 
-function BetBreakdown({ items, players, isCreator, onVoid, onUnvoid }) {
+function BetBreakdown({ items, players, isCreator, onVoid, onUnvoid, onAddBenefit }) {
   const [openTypes, setOpenTypes]     = useState({})
   const [openPlayers, setOpenPlayers] = useState({})
 
@@ -247,7 +259,15 @@ function BetBreakdown({ items, players, isCreator, onVoid, onUnvoid }) {
 
   return (
     <div className="px-4 mb-6">
-      <h3 className="text-gray-400 text-xs uppercase tracking-widest mb-3">Desglose por apuesta</h3>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-gray-400 text-xs uppercase tracking-widest">Desglose por apuesta</h3>
+        {onAddBenefit && (
+          <button
+            onClick={onAddBenefit}
+            className="text-gold text-xs border border-gold/40 rounded-lg px-3 py-1 font-semibold active:bg-gold/10"
+          >+ Agregar</button>
+        )}
+      </div>
       <div className="flex flex-col gap-2">
         {presentTypes.map(type => {
           const meta      = TYPE_META[type] || { emoji: '📌', label: type }
@@ -364,6 +384,122 @@ function MedalDetail({ meta, players }) {
             {players[id]?.name}: {score} neto
           </span>
         ))}
+      </div>
+    </div>
+  )
+}
+
+const BENEFIT_OPTIONS = [
+  { value: 'chipIn',    label: 'Chip-in (Hole-out)',          emoji: '⛳' },
+  { value: 'sandyPar',  label: 'Sandy Par (desde bunker)',     emoji: '🏖️' },
+  { value: 'salvamento',label: 'Salvamento (La Mano)',         emoji: '🤜' },
+  { value: 'inBunker',  label: 'En bunker (Sandy habilitado)', emoji: '🪣' },
+]
+
+function AddBenefitModal({ round, code, players, playerIds, onClose }) {
+  const holes = Object.values(round.holes || {}).sort((a, b) => a.n - b.n)
+  const [benefitType, setBenefitType] = useState('chipIn')
+  const [playerId, setPlayerId]       = useState(playerIds[0] || '')
+  const [holeNum,  setHoleNum]        = useState(holes[0]?.n ?? 1)
+  const [saving,   setSaving]         = useState(false)
+  const [done,     setDone]           = useState(false)
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      if (benefitType === 'chipIn') {
+        await updateRoundDeep(code, { [`holes/${holeNum}/scores/${playerId}/chipIn`]: true })
+      } else if (benefitType === 'sandyPar' || benefitType === 'inBunker') {
+        await updateRoundDeep(code, { [`holes/${holeNum}/scores/${playerId}/inBunker`]: true })
+      } else if (benefitType === 'salvamento') {
+        const manoEvents = [...(round.manoEvents || []),
+          { type: 'salvamento', receiverId: playerId, holeNum, accumulated: 0 }]
+        await updateRoundDeep(code, { manoEvents })
+      }
+      setDone(true)
+      setTimeout(onClose, 900)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const selectedBenefit = BENEFIT_OPTIONS.find(b => b.value === benefitType)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="bg-surface border border-border rounded-t-2xl w-full max-w-lg p-5 pb-8"
+        style={{ paddingBottom: 'max(32px, env(safe-area-inset-bottom))' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-white font-bold text-lg">Agregar beneficio</h3>
+          <button onClick={onClose} className="text-gray-400 text-2xl leading-none">×</button>
+        </div>
+
+        {done ? (
+          <div className="text-center py-6">
+            <p className="text-4xl mb-2">✅</p>
+            <p className="text-white font-semibold">Beneficio añadido</p>
+            <p className="text-gray-400 text-sm mt-1">El desglose se actualizará automáticamente</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {/* Benefit type */}
+            <div>
+              <p className="text-gray-400 text-xs uppercase tracking-wide mb-2">Tipo de beneficio</p>
+              <div className="flex flex-col gap-2">
+                {BENEFIT_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setBenefitType(opt.value)}
+                    className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${benefitType === opt.value ? 'border-gold bg-gold/10' : 'border-border'}`}
+                  >
+                    <span className="text-xl">{opt.emoji}</span>
+                    <span className={`font-semibold text-sm ${benefitType === opt.value ? 'text-gold' : 'text-white'}`}>{opt.label}</span>
+                    {benefitType === opt.value && <span className="ml-auto text-gold">✓</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Player */}
+            <div>
+              <p className="text-gray-400 text-xs uppercase tracking-wide mb-2">Jugador</p>
+              <select
+                value={playerId}
+                onChange={e => setPlayerId(e.target.value)}
+                className="w-full bg-bg border border-border rounded-xl px-4 py-3 text-white text-sm"
+              >
+                {playerIds.map(id => (
+                  <option key={id} value={id}>{players[id]?.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Hole */}
+            <div>
+              <p className="text-gray-400 text-xs uppercase tracking-wide mb-2">Hoyo</p>
+              <select
+                value={holeNum}
+                onChange={e => setHoleNum(Number(e.target.value))}
+                className="w-full bg-bg border border-border rounded-xl px-4 py-3 text-white text-sm"
+              >
+                {holes.map(h => (
+                  <option key={h.n} value={h.n}>Hoyo {h.n} — Par {h.par}</option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="w-full py-4 rounded-xl bg-gold text-bg font-bold text-base active:opacity-80 disabled:opacity-50 mt-1"
+            >
+              {saving ? 'Guardando…' : `Añadir ${selectedBenefit?.emoji || ''} ${selectedBenefit?.label || ''}`}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
